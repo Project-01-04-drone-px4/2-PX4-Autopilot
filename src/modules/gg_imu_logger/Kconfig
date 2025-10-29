@@ -1,0 +1,9 @@
+menuconfig MODULES_GG_IMU_LOGGER
+	bool "gg_imu_logger"
+	default n
+	---help---
+		Enable support for GG IMU Logger module
+
+		This module subscribes to vehicle_imu topics and logs the data
+		to a separate ulog file on the SD card.
+

@@ -1,0 +1,48 @@
+module_name: GG IMU Logger
+
+parameters:
+    - group: GG IMU Logger
+      definitions:
+
+        GG_START:
+            description:
+                short: Enable GG IMU Logger
+                long: |
+                    Enables the GG IMU Logger module to start automatically at boot.
+
+                    0: Disabled (manual start)
+                    1: Enabled (auto start)
+            type: int32
+            default: 0
+            min: 0
+            max: 1
+
+        GG_IMU_INSTANCE:
+            description:
+                short: IMU instance to log
+                long: |
+                    Select which vehicle_imu instance to log:
+
+                    0: Log all instances
+                    1: Log only instance 1
+                    2: Log only instance 2
+            type: int32
+            default: 0
+            min: 0
+            max: 2
+
+        GG_LOG_RATE:
+            description:
+                short: Logging rate in Hz
+                long: |
+                    Rate at which IMU data is logged to file.
+
+                    Higher rates produce more data but capture more detail.
+                    Typical IMU rates are 100-1000 Hz.
+            type: int32
+            default: 100
+            min: 1
+            max: 1000
+            unit: Hz
+
+
