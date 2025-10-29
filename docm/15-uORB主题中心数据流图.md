@@ -15,67 +15,191 @@
 
 ## 一、完整主题网络拓扑图
 
-### 1.1 主题流向总览
+### 1.1 飞控核心信号链主题流向总览
 
 ```
-                        ┌──────────────────────┐
-                        │  sensor_gyro_fifo    │
-                        │  (原始 FIFO 数据)     │
-                        │  发布: IMU 驱动       │
-                        │  频率: 800 Hz         │
-                        └──────┬───────────────┘
-                               │
-                ┌──────────────┼──────────────┐
-                │              │              │
-                ↓              ↓              ↓
-     ┌──────────────┐  ┌─────────────┐  ┌──────────────┐
-     │ vehicle_imu  │  │ vehicle_    │  │sensor_       │
-     │              │  │ angular_    │  │combined      │
-     │ 发布: Vehicle│  │ velocity    │  │              │
-     │   IMU        │  │             │  │发布: Sensors │
-     │ 频率: 265 Hz │  │发布: Vehicle│  │频率: 265 Hz  │
-     └──────┬───────┘  │  Angular    │  └──────┬───────┘
-            │          │  Velocity   │         │
-            │          │频率: 667 Hz │         │
-            │          └──────┬──────┘         │
-            │                 │                │
-            └────────┐        │        ┌───────┘
-                     ↓        │        ↓
-              ┌──────────────────────────┐
-              │   vehicle_attitude       │
-              │   (姿态估计)              │
-              │   发布: EKF2             │
-              │   频率: 193 Hz           │
-              └──────────┬───────────────┘
-                         │
-                         ↓
-              ┌──────────────────────────┐
-              │ vehicle_rates_setpoint   │
-              │ (角速率设定值)            │
-              │ 发布: mc_att_control     │
-              │ 频率: 193 Hz             │
-              └──────────┬───────────────┘
-                         │
-                         ↓ (mc_rate_control订阅)
-              ┌──────────────────────────┐
-              │vehicle_torque_setpoint   │
-              │vehicle_thrust_setpoint   │
-              │ 发布: mc_rate_control    │
-              │ 频率: 667 Hz             │
-              └──────────┬───────────────┘
-                         │
-                         ↓
-              ┌──────────────────────────┐
-              │   actuator_motors        │
-              │   (电机控制输出)          │
-              │   发布: control_allocator│
-              │   频率: 667 Hz           │
-              └──────────┬───────────────┘
-                         │
-                         ↓
-              ┌──────────────────────────┐
-              │   电机 PWM/DShot 输出    │
-              └──────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          飞控核心信号链 - 从传感器到电机输出                        │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                传感器数据层                                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐
+│  sensor_gyro_fifo    │    │  sensor_accel_fifo   │    │    sensor_gyro       │
+│  (陀螺仪 FIFO 数据)   │    │  (加速度计 FIFO 数据) │    │   (陀螺仪单次数据)    │
+│                      │    │                      │    │                      │
+│ 发布: BMI270         │    │ 发布: BMI270         │    │ 发布: BMI270         │
+│ 发布: BMI088         │    │ 发布: BMI088         │    │ 发布: BMI088         │
+│ 频率: 800 Hz         │    │ 频率: 800 Hz         │    │ 频率: 800 Hz         │
+└──────┬───────────────┘    └──────┬───────────────┘    └──────┬───────────────┘
+       │                           │                           │
+       │                           │                           │
+       └──────────────┬────────────┼──────────────┬────────────┘
+                      │            │              │
+                      ▼            ▼              ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                数据处理层                                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐
+│    vehicle_imu       │    │vehicle_angular_      │    │vehicle_acceleration  │
+│   (IMU 积分数据)      │    │velocity             │    │  (加速度滤波数据)     │
+│                      │    │(角速度滤波数据)       │    │                      │
+│ 发布: VehicleIMU     │    │                      │    │ 发布: VehicleAccel   │
+│ 订阅: sensor_gyro_   │    │ 发布: VehicleAngular │    │ 订阅: sensor_accel_  │
+│      fifo, sensor_   │    │      Velocity        │    │      fifo            │
+│      accel_fifo      │    │ 订阅: sensor_gyro_   │    │ 频率: 200 Hz         │
+│ 频率: 265 Hz         │    │      fifo             │    │                      │
+└──────┬───────────────┘    │ 频率: 667 Hz         │    └──────────────────────┘
+       │                    └──────┬───────────────┘
+       │                           │
+       │                           │
+       └──────────────┬────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                状态估计层                                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐
+│  vehicle_attitude    │    │vehicle_local_        │    │  sensor_combined     │
+│   (姿态估计)          │    │position             │    │  (融合传感器数据)     │
+│                      │    │(本地位置估计)         │    │                      │
+│ 发布: EKF2           │    │                      │    │ 发布: Sensors        │
+│ 订阅: vehicle_imu     │    │ 发布: EKF2           │    │ 订阅: vehicle_imu    │
+│ 频率: 193 Hz         │    │ 订阅: vehicle_imu     │    │ 频率: 1000 Hz       │
+└──────┬───────────────┘    │ 频率: 193 Hz         │    └──────────────────────┘
+       │                    └──────────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                控制设定值层                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐    ┌──────────────────────┐
+│vehicle_attitude_     │    │vehicle_rates_        │
+│setpoint              │    │setpoint              │
+│(姿态设定值)           │    │(角速率设定值)         │
+│                      │    │                      │
+│ 发布: mc_pos_control │    │ 发布: mc_att_control  │
+│ 订阅: vehicle_local_ │    │ 订阅: vehicle_        │
+│      position        │    │      attitude        │
+│ 频率: 97 Hz          │    │ 频率: 193 Hz         │
+└──────┬───────────────┘    └──────┬───────────────┘
+       │                           │
+       │                           │
+       └──────────────┬────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                控制输出层                                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐    ┌──────────────────────┐
+│vehicle_torque_       │    │vehicle_thrust_       │
+│setpoint              │    │setpoint              │
+│(力矩设定值)           │    │(推力设定值)           │
+│                      │    │                      │
+│ 发布: mc_rate_       │    │ 发布: mc_rate_       │
+│      control         │    │      control         │
+│ 订阅: vehicle_       │    │ 订阅: vehicle_       │
+│      angular_        │    │      angular_        │
+│      velocity,       │    │      velocity,       │
+│      vehicle_rates_  │    │      vehicle_rates_  │
+│      setpoint        │    │      setpoint        │
+│ 频率: 667 Hz         │    │ 频率: 667 Hz         │
+└──────┬───────────────┘    └──────┬───────────────┘
+       │                           │
+       │                           │
+       └──────────────┬────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                执行器输出层                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐
+│   actuator_motors    │
+│   (电机控制输出)      │
+│                      │
+│ 发布: control_       │
+│      allocator       │
+│ 订阅: vehicle_       │
+│      torque_         │
+│      setpoint,       │
+│      vehicle_thrust_ │
+│      setpoint        │
+│ 频率: 667 Hz         │
+└──────┬───────────────┘
+       │
+       ▼
+┌──────────────────────┐
+│   电机 PWM/DShot     │
+│   输出 (硬件层)       │
+└──────────────────────┘
+```
+
+### 1.2 非飞控核心信号链主题流向图
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        非飞控核心信号链 - 辅助功能和监控                           │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                传感器辅助层                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐
+│    sensor_mag        │    │    sensor_baro       │    │    sensor_gps        │
+│   (磁力计数据)        │    │   (气压计数据)        │    │   (GPS 数据)         │
+│                      │    │                      │    │                      │
+│ 发布: 磁力计驱动      │    │ 发布: 气压计驱动      │    │ 发布: GPS 驱动       │
+│ 频率: 100 Hz         │    │ 频率: 50 Hz          │    │ 频率: 5 Hz           │
+└──────┬───────────────┘    └──────┬───────────────┘    └──────┬───────────────┘
+       │                           │                           │
+       │                           │                           │
+       └──────────────┬────────────┼──────────────┬────────────┘
+                      │            │              │
+                      ▼            ▼              ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                状态估计辅助层                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐
+│vehicle_magnetometer  │    │vehicle_global_        │    │vehicle_odometry      │
+│(车辆磁力计数据)       │    │position              │    │(里程计数据)           │
+│                      │    │(全球位置估计)         │    │                      │
+│ 发布: VehicleMag     │    │                      │    │ 发布: EKF2           │
+│ 订阅: sensor_mag     │    │ 发布: EKF2           │    │ 订阅: 多传感器       │
+│ 频率: 100 Hz         │    │ 订阅: sensor_gps     │    │ 频率: 193 Hz         │
+└──────────────────────┘    │ 频率: 193 Hz         │    └──────────────────────┘
+                            └──────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                监控和日志层                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐
+│   battery_status     │    │   vehicle_status     │    │   system_power       │
+│   (电池状态)          │    │   (车辆状态)          │    │   (系统电源)         │
+│                      │    │                      │    │                      │
+│ 发布: BatteryStatus   │    │ 发布: Commander      │    │ 发布: SystemPower   │
+│ 频率: 10 Hz          │    │ 频率: 10 Hz          │    │ 频率: 1 Hz           │
+└──────────────────────┘    └──────────────────────┘    └──────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                遥测和通信层                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐
+│   telemetry_status   │    │   mavlink_log        │    │   logger_status      │
+│   (遥测状态)          │    │   (MAVLink 日志)      │    │   (日志状态)         │
+│                      │    │                      │    │                      │
+│ 发布: MAVLink        │    │ 发布: Logger         │    │ 发布: Logger         │
+│ 频率: 1 Hz           │    │ 频率: 变化           │    │ 频率: 1 Hz           │
+└──────────────────────┘    └──────────────────────┘    └──────────────────────┘
 ```
 
 ---
@@ -94,13 +218,13 @@
 | **实例数量** | 多实例（每个陀螺仪一个） |
 | **工作队列** | wq:SPI2 |
 
-#### 2.1.2 发布者
+#### 2.1.2 发布者（类 → 主题）
 
-| 模块名称 | 文件位置 | 实例 | 频率 | 发布函数 |
-|---------|---------|------|------|---------|
-| **bmi088_gyro** | `src/drivers/imu/bosch/bmi088/BMI088_Gyroscope.cpp` | Instance 0 | 666.7 Hz | `_px4_gyro.updateFIFO()` ~450行 |
-| **bmi088_accel** | `src/drivers/imu/bosch/bmi088/BMI088_Accelerometer.cpp` | Instance 0 | 800 Hz | `_px4_accel.updateFIFO()` |
-| **bmi270** | `src/drivers/imu/bosch/bmi270/BMI270.cpp` | Instance 1 | 800 Hz | `_px4_gyro.updateFIFO()` 844行 |
+| 类名 | 文件位置 | 实例 | 频率 | 发布函数 |
+|------|---------|------|------|---------|
+| **BMI270** | `src/drivers/imu/bosch/bmi270/BMI270.cpp` | Instance 1 | 800 Hz | `_px4_gyro.updateFIFO()` 844行 |
+| **BMI088_Gyroscope** | `src/drivers/imu/bosch/bmi088/BMI088_Gyroscope.cpp` | Instance 0 | 666.7 Hz | `_px4_gyro.updateFIFO()` ~450行 |
+| **BMI088_Accelerometer** | `src/drivers/imu/bosch/bmi088/BMI088_Accelerometer.cpp` | Instance 0 | 800 Hz | `_px4_accel.updateFIFO()` |
 
 **关键代码**：
 ```cpp
@@ -124,10 +248,10 @@ bool BMI270::FIFORead(const hrt_abstime &timestamp_sample, uint16_t fifo_bytes)
 }
 ```
 
-#### 2.1.3 订阅者
+#### 2.1.3 订阅者（主题 → 类）
 
-| 模块名称 | 文件位置 | 订阅实例 | 用途 | 订阅函数 |
-|---------|---------|---------|------|---------|
+| 类名 | 文件位置 | 订阅实例 | 用途 | 订阅函数 |
+|------|---------|---------|------|---------|
 | **VehicleIMU** | `src/modules/sensors/vehicle_imu/VehicleIMU.cpp` | 根据 device_id | IMU 数据积分 | `_sensor_gyro_fifo_sub.update()` 169行 |
 | **VehicleAngularVelocity** | `src/modules/sensors/vehicle_angular_velocity/VehicleAngularVelocity.cpp` | 根据传感器选择 | 角速度滤波 | `_sensor_gyro_fifo_sub.update()` 828行 |
 
@@ -173,10 +297,10 @@ struct sensor_gyro_fifo_s {
 | **实例数量** | 多实例（每个 IMU 一个） |
 | **工作队列** | wq:INS0, wq:INS1 |
 
-#### 2.2.2 发布者
+#### 2.2.2 发布者（类 → 主题）
 
-| 模块名称 | 文件位置 | 实例 | 频率 | 发布函数 |
-|---------|---------|------|------|---------|
+| 类名 | 文件位置 | 实例 | 频率 | 发布函数 |
+|------|---------|------|------|---------|
 | **VehicleIMU** | `src/modules/sensors/vehicle_imu/VehicleIMU.cpp` | Instance 0 (INS0) | 265 Hz | `_vehicle_imu_pub.publish()` ~240行 |
 | **VehicleIMU** | `src/modules/sensors/vehicle_imu/VehicleIMU.cpp` | Instance 1 (INS1) | 214 Hz | `_vehicle_imu_pub.publish()` ~240行 |
 
@@ -210,10 +334,10 @@ void VehicleIMU::Run()
 }
 ```
 
-#### 2.2.3 订阅者
+#### 2.2.3 订阅者（主题 → 类）
 
-| 模块名称 | 文件位置 | 订阅实例 | 用途 | 订阅函数 |
-|---------|---------|---------|------|---------|
+| 类名 | 文件位置 | 订阅实例 | 用途 | 订阅函数 |
+|------|---------|---------|------|---------|
 | **EKF2** | `src/modules/ekf2/EKF2.cpp` | Instance 0 或 1 | 状态估计 | `_vehicle_imu_sub.update()` ~550行 |
 | **Sensors** | `src/modules/sensors/sensors.cpp` | All instances | 传感器融合 | `_vehicle_imu_sub[i].update()` |
 | **Logger** | `src/modules/logger/` | All instances | 日志记录 | - |
@@ -269,10 +393,10 @@ struct vehicle_imu_s {
 | **实例数量** | 单实例 |
 | **工作队列** | wq:nav_and_controllers |
 
-#### 2.3.2 发布者
+#### 2.3.2 发布者（类 → 主题）
 
-| 模块名称 | 文件位置 | 频率 | 发布函数 |
-|---------|---------|------|---------|
+| 类名 | 文件位置 | 频率 | 发布函数 |
+|------|---------|------|---------|
 | **Sensors** | `src/modules/sensors/sensors.cpp` | ~1000 Hz | `_sensor_pub.publish()` 601行 |
 
 **关键代码**：
@@ -292,10 +416,10 @@ void Sensors::Run()
 }
 ```
 
-#### 2.3.3 订阅者
+#### 2.3.3 订阅者（主题 → 类）
 
-| 模块名称 | 文件位置 | 用途 | 订阅方式 |
-|---------|---------|------|---------|
+| 类名 | 文件位置 | 用途 | 订阅方式 |
+|------|---------|------|---------|
 | **EKF2** (单实例模式) | `src/modules/ekf2/EKF2.cpp` | 状态估计（备用） | `_sensor_combined_sub.update()` |
 | **LocalPositionEstimator** | `src/modules/local_position_estimator/` | 本地位置估计 | 轮询订阅 |
 | **AttitudeEstimatorQ** | `src/modules/attitude_estimator_q/` | 姿态估计（备用） | 轮询订阅 |
@@ -362,10 +486,10 @@ struct sensor_combined_s {
 | **实例数量** | 单实例（根据传感器选择） |
 | **工作队列** | wq:rate_ctrl |
 
-#### 2.4.2 发布者
+#### 2.4.2 发布者（类 → 主题）
 
-| 模块名称 | 文件位置 | 频率 | 发布函数 |
-|---------|---------|------|---------|
+| 类名 | 文件位置 | 频率 | 发布函数 |
+|------|---------|------|---------|
 | **VehicleAngularVelocity** | `src/modules/sensors/vehicle_angular_velocity/VehicleAngularVelocity.cpp` | 667 Hz | `_vehicle_angular_velocity_pub.publish()` 940行 |
 
 **关键代码**：
@@ -405,13 +529,13 @@ void VehicleAngularVelocity::CalibrateAndPublish(...)
 }
 ```
 
-#### 2.4.3 订阅者
+#### 2.4.3 订阅者（主题 → 类）
 
-| 模块名称 | 文件位置 | 用途 | 订阅函数 |
-|---------|---------|------|---------|
-| **mc_rate_control** | `src/modules/mc_rate_control/MulticopterRateControl.cpp` | 角速率控制 | `_vehicle_angular_velocity_sub.update()` 126行 |
+| 类名 | 文件位置 | 用途 | 订阅函数 |
+|------|---------|------|---------|
+| **MulticopterRateControl** | `src/modules/mc_rate_control/MulticopterRateControl.cpp` | 角速率控制 | `_vehicle_angular_velocity_sub.update()` 126行 |
 | **EKF2** | `src/modules/ekf2/EKF2.cpp` | 状态估计（辅助） | `_vehicle_angular_velocity_sub.update()` |
-| **fw_rate_control** | `src/modules/fw_rate_control/` | 固定翼角速率控制 | - |
+| **FixedwingRateControl** | `src/modules/fw_rate_control/` | 固定翼角速率控制 | - |
 | **Logger** | `src/modules/logger/` | 日志记录 | - |
 
 **订阅代码示例**：
@@ -882,24 +1006,26 @@ struct actuator_motors_s {
 
 ## 三、主题订阅关系矩阵
 
-### 3.1 发布-订阅矩阵
+### 3.1 发布-订阅矩阵（类级别）
 
-| uORB 主题 | 发布者 | 订阅者 | 实例 | 频率 |
+| uORB 主题 | 发布者类 | 订阅者类 | 实例 | 频率 |
 |----------|--------|--------|------|------|
-| **sensor_gyro_fifo** | bmi088, bmi270 | VehicleIMU, VehicleAngularVelocity | 多 | 800 Hz |
-| **sensor_accel_fifo** | bmi088, bmi270 | VehicleIMU, VehicleAcceleration | 多 | 800 Hz |
+| **sensor_gyro_fifo** | BMI270, BMI088_Gyroscope | VehicleIMU, VehicleAngularVelocity | 多 | 800 Hz |
+| **sensor_accel_fifo** | BMI270, BMI088_Accelerometer | VehicleIMU, VehicleAcceleration | 多 | 800 Hz |
+| **sensor_gyro** | BMI270, BMI088_Gyroscope | VehicleIMU, VehicleAngularVelocity | 多 | 800 Hz |
+| **sensor_accel** | BMI270, BMI088_Accelerometer | VehicleIMU, VehicleAcceleration | 多 | 800 Hz |
 | **vehicle_imu** | VehicleIMU | EKF2, Sensors, Logger | 多 | 265 Hz |
 | **sensor_combined** | Sensors | EKF2 (备用), Logger | 单 | 1000 Hz |
-| **vehicle_angular_velocity** | VehicleAngularVelocity | mc_rate_control, EKF2, Logger | 单 | 667 Hz |
+| **vehicle_angular_velocity** | VehicleAngularVelocity | MulticopterRateControl, EKF2, Logger | 单 | 667 Hz |
 | **vehicle_acceleration** | VehicleAcceleration | EKF2, Logger | 单 | 200 Hz |
-| **vehicle_attitude** | EKF2 → EKF2Selector | mc_att_control, fw_att_control, Logger | 单 | 193 Hz |
-| **vehicle_local_position** | EKF2 → EKF2Selector | mc_pos_control, Navigator, Logger | 单 | 193 Hz |
-| **vehicle_attitude_setpoint** | mc_pos_control, Manual | mc_att_control, Logger | 单 | 97 Hz |
-| **vehicle_rates_setpoint** | mc_att_control | mc_rate_control, Logger | 单 | 193 Hz |
-| **vehicle_torque_setpoint** | mc_rate_control | control_allocator, Logger | 单 | 667 Hz |
-| **vehicle_thrust_setpoint** | mc_rate_control | control_allocator, Logger | 单 | 667 Hz |
-| **actuator_motors** | control_allocator | dshot, pwm_out, uavcan, Logger | 单 | 667 Hz |
-| **actuator_servos** | control_allocator | pwm_out, uavcan, Logger | 单 | 667 Hz |
+| **vehicle_attitude** | EKF2 → EKF2Selector | MulticopterAttitudeControl, Logger | 单 | 193 Hz |
+| **vehicle_local_position** | EKF2 → EKF2Selector | MulticopterPositionControl, Logger | 单 | 193 Hz |
+| **vehicle_attitude_setpoint** | MulticopterPositionControl | MulticopterAttitudeControl, Logger | 单 | 97 Hz |
+| **vehicle_rates_setpoint** | MulticopterAttitudeControl | MulticopterRateControl, Logger | 单 | 193 Hz |
+| **vehicle_torque_setpoint** | MulticopterRateControl | ControlAllocator, Logger | 单 | 667 Hz |
+| **vehicle_thrust_setpoint** | MulticopterRateControl | ControlAllocator, Logger | 单 | 667 Hz |
+| **actuator_motors** | ControlAllocator | DShot, PWMOut, UAVCAN, Logger | 单 | 667 Hz |
+| **actuator_servos** | ControlAllocator | PWMOut, UAVCAN, Logger | 单 | 667 Hz |
 
 ---
 
@@ -1412,20 +1538,48 @@ top
 
 ---
 
-### 10.2 关键主题对比
+### 10.2 关键主题对比（类级别）
 
 | 主题 | sensor_combined | vehicle_imu | vehicle_angular_velocity |
 |------|----------------|-------------|-------------------------|
 | **用途** | 融合 IMU 数据 | 单个 IMU 数据 | 滤波后角速度 |
-| **发布者** | Sensors | VehicleIMU | VehicleAngularVelocity |
+| **发布者类** | Sensors | VehicleIMU | VehicleAngularVelocity |
 | **频率** | 1000 Hz | 265 Hz | 667 Hz |
 | **实例** | 单 | 多 | 单 |
-| **主要订阅者** | EKF2 (备用) | EKF2 | mc_rate_control |
+| **主要订阅者类** | EKF2 (备用) | EKF2 | MulticopterRateControl |
 | **使用场景** | 单 EKF 模式 | 多 EKF 模式 | 实时控制 |
+
+### 10.3 类订阅-发布关系总结
+
+#### 10.3.1 传感器驱动类
+- **BMI270**: 发布 `sensor_gyro_fifo`, `sensor_accel_fifo`, `sensor_gyro`, `sensor_accel`
+- **BMI088_Gyroscope**: 发布 `sensor_gyro_fifo`, `sensor_gyro`
+- **BMI088_Accelerometer**: 发布 `sensor_accel_fifo`, `sensor_accel`
+
+#### 10.3.2 传感器处理类
+- **VehicleIMU**: 订阅 `sensor_gyro_fifo`, `sensor_accel_fifo` → 发布 `vehicle_imu`
+- **VehicleAngularVelocity**: 订阅 `sensor_gyro_fifo` → 发布 `vehicle_angular_velocity`
+- **VehicleAcceleration**: 订阅 `sensor_accel_fifo` → 发布 `vehicle_acceleration`
+- **Sensors**: 订阅 `vehicle_imu` → 发布 `sensor_combined`
+
+#### 10.3.3 状态估计类
+- **EKF2**: 订阅 `vehicle_imu`, `vehicle_angular_velocity` → 发布 `vehicle_attitude`, `vehicle_local_position`
+- **EKF2Selector**: 订阅 `vehicle_attitude` → 发布 `vehicle_attitude` (选择最优)
+
+#### 10.3.4 控制类
+- **MulticopterPositionControl**: 订阅 `vehicle_local_position` → 发布 `vehicle_attitude_setpoint`
+- **MulticopterAttitudeControl**: 订阅 `vehicle_attitude`, `vehicle_attitude_setpoint` → 发布 `vehicle_rates_setpoint`
+- **MulticopterRateControl**: 订阅 `vehicle_angular_velocity`, `vehicle_rates_setpoint` → 发布 `vehicle_torque_setpoint`, `vehicle_thrust_setpoint`
+- **ControlAllocator**: 订阅 `vehicle_torque_setpoint`, `vehicle_thrust_setpoint` → 发布 `actuator_motors`, `actuator_servos`
+
+#### 10.3.5 执行器类
+- **DShot**: 订阅 `actuator_motors` → 硬件输出
+- **PWMOut**: 订阅 `actuator_motors`, `actuator_servos` → 硬件输出
+- **UAVCAN**: 订阅 `actuator_motors`, `actuator_servos` → 硬件输出
 
 ---
 
-### 10.3 数据流优化要点
+### 10.4 数据流优化要点
 
 1. **快速路径优化**
    - vehicle_angular_velocity → actuator_motors
@@ -1449,16 +1603,22 @@ top
 
 ---
 
-### 10.4 与文档 09 的关系
+### 10.5 与文档 09 的关系
 
 | 文档 | 视角 | 核心元素 | 关注点 |
 |------|------|---------|--------|
 | **文档 09** | 模块中心 | 模块 → 模块 | 代码位置、函数调用 |
-| **文档 15** | 主题中心 | 主题 ← 发布者/订阅者 | 数据流、发布订阅关系 |
+| **文档 15** | 主题中心 | 主题 ← 发布者类/订阅者类 | 数据流、发布订阅关系 |
 
 **互补性**：
 - 文档 09：告诉你"谁在哪里做什么"
 - 文档 15：告诉你"数据从哪来到哪去"
+
+**新增内容**：
+- 详细的类级别发布-订阅关系
+- 飞控核心信号链与非核心信号链分离
+- 每个主题的完整发布者和订阅者列表
+- 类级别的数据流分析
 
 ---
 
