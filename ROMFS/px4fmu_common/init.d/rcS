@@ -583,6 +583,14 @@ else
 	fi
 
 	#
+	# GG IMU Logger - 自动启动（如果启用）
+	#
+	if param compare -s GG_START 1
+	then
+		gg_imu_logger start
+	fi
+
+	#
 	# Optional board supplied extras: rc.board_extras
 	#
 	set BOARD_RC_EXTRAS ${R}etc/init.d/rc.board_extras

@@ -23,3 +23,8 @@ param set-default MSP_OSD_CONFIG 102
 param set-default CA_AIRFRAME 0
 param set-default CA_ROTOR_COUNT 4
 param set-default CBRK_SUPPLY_CHK 894281
+
+# GG IMU Logger parameters
+param set-default GG_START 0
+param set-default GG_IMU_INSTANCE 0
+param set-default GG_LOG_RATE 100
