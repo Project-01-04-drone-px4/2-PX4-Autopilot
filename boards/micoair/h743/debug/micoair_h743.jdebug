@@ -1,0 +1,65 @@
+/*********************************************************************
+*
+*   Ozone Project Configuration for MicoAir H743
+*
+*   Target: STM32H743VI
+*   Interface: SWD
+*
+*   Flash Layout:
+*   0x08000000 - 0x0801FFFF : Bootloader (Protected, not erased)
+*   0x08020000 - 0x081FFFFF : PX4 Firmware
+*
+*********************************************************************/
+
+void AfterTargetReset (void) {
+}
+
+void AfterTargetDownload (void) {
+}
+
+void BeforeTargetConnect (void) {
+}
+
+void AfterTargetConnect (void) {
+}
+
+/*********************************************************************
+*       Project Configuration
+*********************************************************************/
+
+void SetupTarget(void) {
+  Setup.TargetInterface = "SWD";
+  Setup.Device          = "STM32H743VI";
+  Setup.Speed           = 4000;
+  Setup.JLinkScriptFile = "";
+}
+
+void SetupMemory(void) {
+  // Flash memory (保护Bootloader区域)
+  Project.SetFlashArea(
+    0x08020000,                    // Flash起始地址（跳过Bootloader）
+    0x001E0000                     // Flash大小 (1920KB)
+  );
+
+  // RAM (AXI SRAM)
+  Project.SetRAMArea(
+    0x24000000,                    // RAM起始地址
+    0x00080000                     // RAM大小 (512KB)
+  );
+}
+
+void SetupDebug(void) {
+  Debug.ResetType = "Normal";
+  Debug.ResetAfterLoad = "Yes";
+  Debug.HaltAfterReset = "No";
+  Debug.DownloadProgressBar = "Yes";
+}
+
+void SetupDownload(void) {
+  Download.EraseAll = "No";                    // ← 不擦除全部！
+  Download.EraseAffectedRangesOnly = "Yes";    // 只擦除需要的区域
+  Download.SkipProgram = "No";
+  Download.SkipVerify = "No";
+  Download.ResetAndRun = "Yes";
+}
+

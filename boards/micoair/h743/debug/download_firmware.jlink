@@ -1,0 +1,37 @@
+/*********************************************************************
+*
+*   JLink脚本 - MicoAir H743固件下载
+*
+*   功能：只下载固件，保护Bootloader不被擦除
+*
+*   使用方法：
+*   JLinkExe -device STM32H743VI -if SWD -speed 4000 -CommandFile download_firmware.jlink
+*
+*********************************************************************/
+
+// 连接配置
+si SWD
+speed 4000
+
+// 连接到目标
+connect
+
+// 只擦除固件区域（从0x08020000到0x081FFFFF）
+// 保护区域：0x08000000 - 0x0801FFFF (Bootloader + Reserved)
+erase 0x08020000 0x081FFFFF
+
+// 下载ELF文件
+loadfile ../../../build/micoair_h743_default/micoair_h743_default.elf
+
+// 验证下载
+// verifybin ../../../build/micoair_h743_default/micoair_h743_default.bin 0x08020000
+
+// 复位CPU
+r
+
+// 运行程序
+g
+
+// 退出
+qc
+
