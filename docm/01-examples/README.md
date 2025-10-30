@@ -1,313 +1,642 @@
-# 01-examples - PX4 示例代码分析文档集
+# matlab_csv_serial - Fake IMU 数据采集与分析工具
 
-## 📁 文件夹说明
+## 概述
 
-本文件夹包含 PX4 Examples 示例代码的详细分析文档，旨在帮助开发者深入理解 PX4 示例模块的实现原理和使用方法。
+本模块用于从 PX4 的 `fake_imu` 模块采集传感器数据，通过串口以 CSV 格式输出，然后在 MATLAB 中进行分析和可视化。
 
----
-
-## 📚 文档列表
-
-| 序号 | 文档名称 | 模块路径 | 主要内容 |
-|------|---------|---------|---------|
-| 01 | [fake_imu传感器模拟器代码详解](./01-fake_imu传感器模拟器代码详解.md) | `src/examples/fake_imu/` | 虚拟 IMU 传感器、扫频信号生成、动态陷波滤波器测试 |
-| 02 | [matlab_csv_serial数据导出工具详解](./02-matlab_csv_serial数据导出工具详解.md) | `src/examples/matlab_csv_serial/` | 传感器数据实时导出、CSV 格式、MATLAB 集成 |
-| 03 | [ModuleBase框架与传统模块开发对比详解](./03-ModuleBase框架与传统模块开发对比详解.md) | 框架对比 | CRTP 模式、命令处理机制、虚函数 vs 模板 |
-| 04 | [PX4Gyroscope参数系统与采样率配置详解](./04-PX4Gyroscope参数系统与采样率配置详解.md) | 参数系统 | IMU_GYRO_RATEMAX、参数读取、采样率配置 |
-| 05 | [fake_imu参数配置使用指南](./05-fake_imu参数配置使用指南.md) | `src/examples/fake_imu/` | 扫频参数配置、实际应用案例、参数调优 |
-| 06 | [fake_imu数据记录与频谱分析完整流程](./06-fake_imu数据记录与频谱分析完整流程.md) | 实战指南 | 日志记录、数据下载、FFT分析、MATLAB/Python示例 |
+`fake_imu` 生成线性调频（Chirp）信号，可用于：
+- 测试传感器数据采集链路
+- 验证串口通信
+- 频率响应分析
+- FFT 和时频分析实验
 
 ---
 
-## 🎯 学习路线建议
-
-### 初学者路线
+## 系统架构
 
 ```
-1. matlab_csv_serial (简单，传统 C 语言)
-   ↓
-2. ModuleBase框架对比文档 (理解框架设计)
-   ↓
-3. fake_imu (中等，ModuleBase 框架)
-```
-
-**原因**：
-- `matlab_csv_serial` 使用传统 C 语言和简单的线程模型，易于理解
-- 先阅读框架对比文档，理解 CRTP 模式和命令处理机制
-- `fake_imu` 使用现代的 ModuleBase 框架，是学习标准模块开发的好例子
-
----
-
-### 进阶开发者路线
-
-```
-1. fake_imu
-   ↓
-2. 结合 gyro_fft 模块源码
-   ↓
-3. 开发自己的测试工具
+┌─────────────┐         ┌──────────────────┐         ┌─────────────┐
+│  fake_imu   │  uORB   │ matlab_csv_serial│ 串口TX  │   PC/笔记本  │
+│  (工作队列)  ├────────>│   (独立任务)      ├────────>│  串口接收工具 │
+│             │         │                  │         │             │
+│ 生成Chirp   │         │ 订阅sensor_accel │         │ 保存为TXT/CSV│
+│ 正弦波信号   │         │ 订阅sensor_gyro  │         │             │
+└─────────────┘         └──────────────────┘         └──────┬──────┘
+                                                             │
+                                                             v
+                                                      ┌─────────────┐
+                                                      │   MATLAB    │
+                                                      │ 读取并绘图   │
+                                                      └─────────────┘
 ```
 
 ---
 
-## 🔗 模块关联关系
+## 快速开始
 
+### 1. 硬件连接
+
+#### 方案 A：使用 USB 转 TTL 串口（推荐）
 ```
-┌─────────────────┐
-│   fake_imu      │  生成扫频信号
-│  (虚拟传感器)    │
-└────────┬────────┘
-         │ 发布 sensor_gyro_fifo
-         ▼
-┌─────────────────┐
-│   gyro_fft      │  FFT 频谱分析
-│  (频谱分析)      │
-└────────┬────────┘
-         │ 检测频率
-         ▼
-┌─────────────────┐
-│ Dynamic Notch   │  动态陷波滤波
-│  (振动抑制)      │
-└─────────────────┘
-         │
-         ▼
-┌─────────────────┐
-│matlab_csv_serial│  导出数据
-│  (数据导出)      │  ↓
-└─────────────────┘  MATLAB 分析验证
+飞控板            USB转TTL模块          电脑
+UART_TX  ───>     RX              USB ──> PC
+UART_RX  <───     TX              (接收数据)
+GND      ───>     GND
 ```
 
----
+#### 方案 B：使用飞控的 USB 口（如果支持）
+```
+飞控 USB 口 ──> 电脑 USB 口
+```
 
-## 📖 文档特点
+### 2. 确定串口设备
 
-### 1. 详细的代码解析
-
-每个文档都包含：
-- ✅ 完整的代码流程分析
-- ✅ 关键函数逐行注释
-- ✅ 数据结构详解
-- ✅ 算法原理说明
-
-### 2. 丰富的示例代码
-
-- MATLAB 数据分析脚本
-- Python 实时绘图示例
-- Shell 命令使用方法
-- 代码改进建议
-
-### 3. 实战应用场景
-
-- 测试工具开发
-- 算法验证流程
-- 故障诊断方法
-- 性能分析技巧
-
----
-
-## 🛠️ 快速上手
-
-### fake_imu 使用
+在飞控板的配置文件中查看可用串口：
 
 ```bash
-# 1. 启动虚拟 IMU
+# 查看 boards/micoair/h743/default.px4board
+CONFIG_BOARD_SERIAL_TEL1="/dev/ttyS0"   # TELEM1
+CONFIG_BOARD_SERIAL_TEL2="/dev/ttyS1"   # TELEM2
+CONFIG_BOARD_SERIAL_GPS1="/dev/ttyS2"   # GPS
+...
+```
+
+**常用串口：**
+- `/dev/ttyS0` - TELEM1 口
+- `/dev/ttyS1` - TELEM2 口
+- `/dev/ttyACM0` - USB 虚拟串口
+
+### 3. PX4 端操作
+
+#### 3.1 连接到 NSH Shell
+```bash
+# 通过串口或 USB 连接
+# 使用工具如：screen, minicom, QGroundControl MAVLink Console 等
+```
+
+#### 3.2 启动 fake_imu
+```bash
 nsh> fake_imu start
+```
 
-# 2. 查看数据
-nsh> listener sensor_gyro_fifo
+**验证运行状态：**
+```bash
+nsh> fake_imu status
+# 应该显示: running
+```
 
-# 3. 启动 FFT 分析（如果已编译）
-nsh> gyro_fft start
+**查看参数（可选）：**
+```bash
+nsh> param show FAKE_IMU*
+# FAKE_IMU_X_F0    0.000000    # X轴起始频率 (Hz)
+# FAKE_IMU_X_F1   10.000000    # X轴结束频率 (Hz)
+# FAKE_IMU_Y_F0    0.000000    # Y轴起始频率 (Hz)
+# FAKE_IMU_Y_F1  100.000000    # Y轴结束频率 (Hz)
+# FAKE_IMU_Z_F0    0.000000    # Z轴起始频率 (Hz)
+# FAKE_IMU_Z_F1 1000.000000    # Z轴结束频率 (Hz)
+# FAKE_IMU_PERIOD 10.000000    # 扫频周期 (秒)
+```
 
-# 4. 停止
+**修改参数（如需要）：**
+```bash
+nsh> param set FAKE_IMU_Z_F1 500    # 修改Z轴最大频率为500Hz
+nsh> param save                      # 保存参数（重启后生效）
+```
+
+#### 3.3 启动 matlab_csv_serial
+```bash
+# 使用 TELEM1 口 (/dev/ttyS0)
+nsh> matlab_csv_serial start /dev/ttyS0
+
+# 或使用其他串口
+nsh> matlab_csv_serial start /dev/ttyS1
+
+# 查看状态
+nsh> matlab_csv_serial status
+# 应该显示: running
+```
+
+**输出示例：**
+```
+INFO  [matlab_csv_serial] opening port /dev/ttyS0
+INFO  [matlab_csv_serial] Serial port configured successfully
+INFO  [matlab_csv_serial] Subscribing to fake_imu sensor data (device ID 1310988)...
+INFO  [matlab_csv_serial] Started! Writing CSV data to serial port...
+INFO  [matlab_csv_serial] CSV format: timestamp_us,accel_x,accel_y,accel_z,gyro_x,gyro_y,gyro_z
+INFO  [matlab_csv_serial] Samples: accel=1000, gyro=1000
+...
+```
+
+#### 3.4 停止采集
+```bash
+nsh> matlab_csv_serial stop
 nsh> fake_imu stop
 ```
 
-### matlab_csv_serial 使用
+### 4. PC 端数据采集
+
+#### 方案 A：使用 Python (推荐)
+
+创建 `capture_serial.py`：
+
+```python
+#!/usr/bin/env python3
+import serial
+import time
+import sys
+
+# 配置参数
+PORT = '/dev/ttyUSB0'      # Linux: /dev/ttyUSB0, macOS: /dev/cu.usbserial-*, Windows: COM3
+BAUDRATE = 921600
+OUTPUT_FILE = 'imu_data.csv'
+
+def main():
+    print(f"正在打开串口: {PORT} @ {BAUDRATE} bps")
+
+    try:
+        # 打开串口
+        ser = serial.Serial(PORT, BAUDRATE, timeout=1)
+        print(f"串口已打开")
+
+        # 打开输出文件
+        with open(OUTPUT_FILE, 'w') as f:
+            print(f"正在保存数据到: {OUTPUT_FILE}")
+            print("按 Ctrl+C 停止采集...")
+
+            line_count = 0
+            start_time = time.time()
+
+            while True:
+                try:
+                    # 读取一行
+                    line = ser.readline().decode('utf-8', errors='ignore').strip()
+
+                    if line:
+                        # 写入文件
+                        f.write(line + '\n')
+                        f.flush()  # 立即写入磁盘
+
+                        line_count += 1
+
+                        # 每1000行打印一次状态
+                        if line_count % 1000 == 0:
+                            elapsed = time.time() - start_time
+                            rate = line_count / elapsed if elapsed > 0 else 0
+                            print(f"已采集 {line_count} 行 ({rate:.1f} 行/秒)")
+
+                except KeyboardInterrupt:
+                    print("\n用户中断，正在保存...")
+                    break
+
+        print(f"\n采集完成！")
+        print(f"总共采集 {line_count} 行数据")
+        print(f"保存到: {OUTPUT_FILE}")
+
+    except serial.SerialException as e:
+        print(f"串口错误: {e}")
+        sys.exit(1)
+    finally:
+        if 'ser' in locals() and ser.is_open:
+            ser.close()
+            print("串口已关闭")
+
+if __name__ == '__main__':
+    main()
+```
+
+运行：
+```bash
+# 安装依赖
+pip3 install pyserial
+
+# 执行采集
+chmod +x capture_serial.py
+./capture_serial.py
+```
+
+#### 方案 B：使用 minicom (Linux)
 
 ```bash
-# 1. 启动数据导出（指定串口）
-nsh> matlab_csv_serial start /dev/ttyS1
+# 捕获到文件
+minicom -D /dev/ttyUSB0 -b 921600 -C imu_data.txt
 
-# 2. 电脑端接收数据（Linux）
-cat /dev/ttyUSB0 > imu_data.csv
-
-# 3. MATLAB 分析
-data = csvread('imu_data.csv');
-plot(data(:,1)/1e6, data(:,2));
-
-# 4. 停止导出
-nsh> matlab_csv_serial stop
+# 按 Ctrl+A 然后 Q 退出
 ```
 
----
+#### 方案 C：使用 screen (Linux/macOS)
 
-## 🔍 深度主题索引
-
-### 编程模式对比
-
-| 主题 | `matlab_csv_serial` | `fake_imu` |
-|------|-------------------|-----------|
-| 编程语言 | C 语言 | C++ 语言 |
-| 模块框架 | 传统线程 | ModuleBase |
-| 任务调度 | 独立线程 + poll | ScheduledWorkItem |
-| 生命周期 | 手动标志位 | should_exit() |
-| 数据发布 | 串口输出 | uORB 发布 |
-
-### 适用场景对比
-
-| 场景 | `fake_imu` | `matlab_csv_serial` |
-|------|-----------|-------------------|
-| 算法测试 | ✅ 理想 | ⚠️ 需要真实传感器 |
-| 硬件测试 | ❌ 不适用 | ✅ 理想 |
-| 教学演示 | ✅ 适合 | ✅ 适合 |
-| 数据分析 | ⚠️ 需配合日志 | ✅ 实时导出 |
-| 振动分析 | ✅ 扫频测试 | ✅ 实际数据 |
-
----
-
-## 📝 相关文档参考
-
-### 核心框架文档
-
-- `10-PX4工作队列架构与启动机制.md` - 工作队列原理
-- `16-PX4_uORB消息系统架构与通信机制.md` - uORB 通信机制
-- `32-PX4_AppState应用状态管理机制详解.md` - 模块生命周期管理
-
-### 传感器相关文档
-
-- `01-BMI270传感器寄存器配置详解.md` - 真实 IMU 驱动
-- `02-BMI270数据结构与信号链路分析.md` - 传感器数据流
-- `05-飞行器角速度计算Run函数源码分析.md` - IMU 数据处理
-
-### 算法相关文档
-
-- `06-动态陷波滤波器配置与实现原理.md` - fake_imu 的测试目标
-- `07-FFT动态陷波带宽计算算法详解.md` - 频谱分析算法
-- `18-EKF2纯IMU模式数据流与滤波策略分析.md` - IMU 数据应用
-
----
-
-## 🚀 扩展学习
-
-### 其他 PX4 示例模块
-
-```
-src/examples/
-├── dyn_hello/          # 动态加载模块示例
-├── fake_gps/           # 虚拟 GPS 传感器
-├── fake_magnetometer/  # 虚拟磁力计
-├── hello/              # 基础示例（start/stop/status）
-├── px4_mavlink_debug/  # MAVLink 调试
-├── px4_simple_app/     # 简单应用示例
-└── work_item/          # 工作队列示例
-```
-
-**推荐下一步学习**：
-1. `hello/` - 学习基本的 AppState 使用
-2. `work_item/` - 学习工作队列编程
-3. `px4_simple_app/` - 综合示例
-
----
-
-## 💡 开发建议
-
-### 编写新模块时的选择
-
-**使用传统模式（类似 matlab_csv_serial）**：
-- ✅ 简单的工具脚本
-- ✅ 与外部系统交互（串口、网络）
-- ✅ 短期使用的测试代码
-
-**使用 ModuleBase 框架（类似 fake_imu）**：
-- ✅ 需要集成到 PX4 生态系统
-- ✅ 长期维护的模块
-- ✅ 需要参数系统、事件系统支持
-- ✅ 遵循 PX4 编码规范
-
----
-
-## 🔧 故障排查
-
-### fake_imu 常见问题
-
-**Q1: 启动后没有数据**
 ```bash
-# 检查模块状态
-nsh> fake_imu status
+# 开始记录
+screen -L -Logfile imu_data.txt /dev/ttyUSB0 921600
 
-# 查看工作队列
-nsh> work_queue status
-
-# 查看 uORB 主题
-nsh> uorb top
+# 按 Ctrl+A 然后 K 停止
 ```
 
-**Q2: FFT 模块无法检测到频率**
-- 确认 `gyro_fft` 已启动
-- 检查采样率配置
-- 查看日志：`dmesg`
+#### 方案 D：使用串口助手软件 (Windows)
 
----
+推荐软件：
+- **SSCOM** - 中文界面，简单易用
+- **Tera Term** - 功能强大
+- **Putty** - 支持日志记录
 
-### matlab_csv_serial 常见问题
+配置：
+- 波特率：921600
+- 数据位：8
+- 停止位：1
+- 校验：无
+- 流控：无
 
-**Q1: 串口打开失败**
+启用"保存到文件"功能，开始接收数据。
+
+### 5. 数据格式
+
+采集到的数据格式为 CSV：
+
+```csv
+# timestamp_us,accel_x,accel_y,accel_z,gyro_x,gyro_y,gyro_z
+1234567890123,0.123456,-0.234567,9.805432,0.001234,0.002345,-0.000123
+1234567891373,0.125678,-0.236789,9.803210,0.001456,0.002567,-0.000234
+...
+```
+
+**字段说明：**
+- `timestamp_us` - 时间戳（微秒）
+- `accel_x/y/z` - 加速度（m/s²）
+- `gyro_x/y/z` - 角速度（rad/s）
+
+### 6. MATLAB 分析
+
+#### 6.1 TXT 转 CSV（如果需要）
+
+如果你的数据保存为 `.txt` 文件，可以直接重命名：
+
 ```bash
-# 检查设备是否存在
-nsh> ls /dev/tty*
+# Linux/macOS
+mv imu_data.txt imu_data.csv
 
-# 检查权限
-nsh> ls -l /dev/ttyS1
+# Windows
+ren imu_data.txt imu_data.csv
 ```
 
-**Q2: 数据乱码**
-- 检查波特率是否一致（921600）
-- 确认 TX/RX 是否接反
-- 使用示波器检查信号
+或者在 MATLAB 中使用提供的转换函数：
+
+```matlab
+% 在 MATLAB 命令窗口
+convert_txt_to_csv('imu_data.txt', 'imu_data.csv');
+```
+
+#### 6.2 运行 MATLAB 脚本
+
+```matlab
+% 1. 切换到脚本所在目录
+cd('/home/gg/01-code/01-px4/px4_latest/2-PX4-Autopilot/src/examples/matlab_csv_serial')
+
+% 2. 运行绘图脚本
+plot_fake_imu_data('imu_data.csv');
+
+% 或者使用默认文件名
+plot_fake_imu_data();  % 会寻找 imu_data.csv
+```
+
+#### 6.3 查看结果
+
+脚本会生成一个包含6个子图的窗口：
+
+1. **加速度计时域** - 显示 X/Y/Z 三轴随时间变化
+2. **陀螺仪时域** - 显示 X/Y/Z 三轴随时间变化
+3. **加速度计频谱** - X轴的FFT频谱分析
+4. **陀螺仪频谱** - Z轴的FFT频谱分析
+5. **加速度计时频分析** - X轴的Spectrogram（可看到频率扫描）
+6. **陀螺仪时频分析** - Z轴的Spectrogram（可看到频率扫描）
+
+**你应该能看到：**
+- 时域图中的正弦波形
+- 频谱图中的单一峰值（如果采集时间较短）或宽带谱（如果完整扫频）
+- 时频图中清晰的斜线（频率随时间线性增加）
 
 ---
 
-## 📊 性能对比
+## 高级配置
 
-| 指标 | `fake_imu` | `matlab_csv_serial` |
-|------|-----------|-------------------|
-| CPU 占用 | 约 2% | 约 1-2% |
-| 内存占用 | 约 4KB | 约 2KB |
-| 实时性 | 高（工作队列） | 中（独立线程） |
-| 带宽消耗 | 无（内部发布） | 336 Kbps（串口） |
+### 调整 fake_imu 参数
+
+fake_imu 使用线性调频（Chirp）信号，参数控制每个轴的扫频范围：
+
+```bash
+# X轴：0 -> 10 Hz (慢速扫频)
+param set FAKE_IMU_X_F0 0
+param set FAKE_IMU_X_F1 10
+
+# Y轴：0 -> 100 Hz (中速扫频)
+param set FAKE_IMU_Y_F0 0
+param set FAKE_IMU_Y_F1 100
+
+# Z轴：0 -> 1000 Hz (快速扫频)
+param set FAKE_IMU_Z_F0 0
+param set FAKE_IMU_Z_F1 1000
+
+# 扫频周期：10秒完成一次完整扫频
+param set FAKE_IMU_PERIOD 10
+
+# 保存参数（可选，重启后也生效）
+param save
+```
+
+**建议配置：**
+
+| 应用场景 | X_F1 | Y_F1 | Z_F1 | PERIOD | 说明 |
+|---------|------|------|------|--------|------|
+| 低频测试 | 5 | 10 | 20 | 10 | 适合慢速采集 |
+| 中频测试 | 10 | 50 | 200 | 10 | 平衡测试 |
+| 高频测试 | 50 | 500 | 2000 | 20 | 测试高频响应 |
+| 快速验证 | 10 | 50 | 100 | 5 | 快速看到结果 |
+
+### 修改串口波特率
+
+如果需要更改波特率（不推荐，921600 是最优的）：
+
+在 `matlab_csv_serial.c` 中修改：
+
+```c
+unsigned speed = 921600;  // 改为 115200, 460800 等
+```
+
+然后重新编译。
+
+### 输出更多数据
+
+当前输出 7 列数据。如果想输出更多信息（如设备ID、温度等），可以修改 `matlab_csv_serial.c` 中的输出格式：
+
+```c
+dprintf(serial_fd, "%llu,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%u,%.2f\n",
+    (unsigned long long)timestamp,
+    (double)accel.x, (double)accel.y, (double)accel.z,
+    (double)gyro.x, (double)gyro.y, (double)gyro.z,
+    accel.device_id,
+    (double)accel.temperature);
+```
+
+相应地，MATLAB 脚本也需要更新变量名。
 
 ---
 
-## 📅 更新记录
+## 故障排查
 
-| 日期 | 版本 | 说明 |
-|------|------|------|
-| 2025-10-30 | v1.4 | 新增数据记录与频谱分析完整流程文档（实战指南） |
-| 2025-10-30 | v1.3 | fake_imu 参数化改进 + 使用指南文档 |
-| 2025-10-30 | v1.2 | 新增 PX4Gyroscope 参数系统文档（IMU_GYRO_RATEMAX 详解） |
-| 2025-10-30 | v1.1 | 新增 ModuleBase 框架对比文档（CRTP 模式详解） |
-| 2025-10-30 | v1.0 | 初始版本，包含 fake_imu 和 matlab_csv_serial 分析 |
+### 问题 1：fake_imu 启动失败
+
+**症状：**
+```
+ERROR [fake_imu] alloc failed
+```
+
+**解决：**
+- 检查内存是否足够
+- 尝试停止其他不必要的模块
+
+### 问题 2：matlab_csv_serial 无法打开串口
+
+**症状：**
+```
+ERROR [matlab_csv_serial] failed to open port: /dev/ttyS0
+```
+
+**解决：**
+1. 确认串口设备存在：
+   ```bash
+   nsh> ls /dev/tty*
+   ```
+
+2. 检查串口是否被其他程序占用：
+   ```bash
+   nsh> dmesg | grep tty
+   ```
+
+3. 尝试其他串口：
+   ```bash
+   nsh> matlab_csv_serial start /dev/ttyS1
+   ```
+
+### 问题 3：PC 端收不到数据
+
+**排查步骤：**
+
+1. **检查硬件连接**
+   - 确认 TX/RX 接线正确
+   - 确认 GND 已连接
+
+2. **检查 PC 端串口**
+   ```bash
+   # Linux
+   ls -l /dev/ttyUSB*
+
+   # 给予权限
+   sudo chmod 666 /dev/ttyUSB0
+   # 或加入 dialout 组
+   sudo usermod -a -G dialout $USER
+   ```
+
+3. **验证串口通信**
+   ```bash
+   # 使用 minicom 查看原始数据
+   minicom -D /dev/ttyUSB0 -b 921600
+   ```
+
+   应该能看到滚动的数字输出。
+
+4. **检查波特率**
+   - 确保 PC 端工具设置为 921600
+   - 数据位 8，停止位 1，无校验
+
+### 问题 4：MATLAB 读取数据失败
+
+**症状：**
+```
+Error: 文件不存在: imu_data.csv
+```
+
+**解决：**
+1. 确认文件路径正确
+2. 使用绝对路径：
+   ```matlab
+   plot_fake_imu_data('/full/path/to/imu_data.csv');
+   ```
+
+**症状：**
+```
+Error: 没有读取到数据！
+```
+
+**解决：**
+1. 检查文件是否为空
+2. 确认文件格式正确（CSV，逗号分隔）
+3. 检查是否有注释行（以 `#` 开头）
+
+### 问题 5：频谱图显示异常
+
+**可能原因：**
+- 采样时间太短（建议至少采集 10 秒）
+- 采样率不够（fake_imu 默认约 8kHz，应该足够）
+- 数据中有异常值
+
+**解决：**
+- 采集更长时间的数据
+- 检查数据是否连续（时间戳应该单调增加）
 
 ---
 
-## 👥 贡献者
+## 文件说明
 
-- 文档整理：基于 PX4 源码分析
-- PX4 版本：v1.14+
-- 测试平台：MicoAir H743 / SITL
-
----
-
-## 📧 反馈与建议
-
-如有问题或建议，请通过以下方式反馈：
-- 在相关文档末尾添加注释
-- 创建新的分析文档
-- 提交改进建议
+```
+matlab_csv_serial/
+├── CMakeLists.txt              # 构建配置
+├── Kconfig                      # 配置选项
+├── matlab_csv_serial.c          # 主程序（已修改为订阅fake_imu）
+├── plot_fake_imu_data.m         # MATLAB 绘图脚本
+└── README.md                    # 本文档
+```
 
 ---
 
-**文档集版本**：v1.0
-**最后更新**：2025-10-30
+## 实际应用案例
+
+### 案例 1：验证陀螺仪动态范围
+
+**目标：** 测试飞控陀螺仪能否正确处理 0-1000 Hz 的信号
+
+**步骤：**
+1. 设置 fake_imu 参数：
+   ```bash
+   param set FAKE_IMU_Z_F0 0
+   param set FAKE_IMU_Z_F1 1000
+   param set FAKE_IMU_PERIOD 20
+   ```
+
+2. 采集 20 秒数据
+
+3. 在 MATLAB 中查看陀螺仪 Z轴 的时频图
+
+**预期结果：** 应该看到从 0 到 1000 Hz 的清晰斜线
+
+### 案例 2：测试串口通信可靠性
+
+**目标：** 验证串口在高速率下的数据完整性
+
+**步骤：**
+1. 采集 60 秒数据
+2. 检查时间戳是否连续
+3. 检查是否有数据丢失
+
+**MATLAB 验证代码：**
+```matlab
+% 读取数据
+data = readtable('imu_data.csv');
+
+% 检查时间戳间隔
+dt = diff(data.timestamp);
+dt_us = dt;  % 微秒
+dt_mean = mean(dt_us);
+dt_std = std(dt_us);
+
+fprintf('平均时间间隔: %.2f us (%.1f Hz)\n', dt_mean, 1e6/dt_mean);
+fprintf('标准差: %.2f us\n', dt_std);
+
+% 检测丢失数据
+expected_interval = median(dt_us);
+gaps = find(dt_us > expected_interval * 2);
+
+if isempty(gaps)
+    fprintf('✓ 数据完整，无丢失\n');
+else
+    fprintf('✗ 检测到 %d 处数据间隙\n', length(gaps));
+    fprintf('  位置: %s\n', mat2str(gaps'));
+end
+```
+
+### 案例 3：频率响应分析
+
+**目标：** 分析整个数据链路的频率响应特性
+
+**步骤：**
+1. 使用宽频扫描（0-2000 Hz）
+2. 采集完整周期的数据
+3. 使用 FFT 分析每个频段的幅值
+
+**进阶分析：** 可以计算传递函数，识别滤波器特性
+
+---
+
+## 参考资料
+
+### PX4 相关
+- [PX4 用户指南](https://docs.px4.io/)
+- [uORB 消息](https://docs.px4.io/main/en/middleware/uorb.html)
+- [模块开发](https://docs.px4.io/main/en/modules/modules_main.html)
+
+### MATLAB 相关
+- [readtable 文档](https://www.mathworks.com/help/matlab/ref/readtable.html)
+- [FFT 文档](https://www.mathworks.com/help/matlab/ref/fft.html)
+- [spectrogram 文档](https://www.mathworks.com/help/signal/ref/spectrogram.html)
+
+### 信号处理
+- [Chirp 信号 - 维基百科](https://en.wikipedia.org/wiki/Chirp)
+- [时频分析](https://en.wikipedia.org/wiki/Time%E2%80%93frequency_analysis)
+
+---
+
+## 常见问题 (FAQ)
+
+**Q1: 为什么选择 921600 波特率？**
+
+A: 这是常见串口支持的最高标准波特率。fake_imu 以约 8kHz 输出数据，每行约 60 字节，需要 480 kbps，921600 bps 提供足够的带宽余量。
+
+**Q2: 可以同时运行多个 matlab_csv_serial 实例吗？**
+
+A: 可以，但需要使用不同的串口。每个串口只能被一个实例使用。
+
+**Q3: 数据量会很大吗？**
+
+A: 是的。以 8kHz 采样率，每行 60 字节：
+- 每秒：约 480 KB
+- 每分钟：约 28 MB
+- 每小时：约 1.7 GB
+
+建议采集时间不要太长（1-5 分钟足够分析）。
+
+**Q4: 为什么时频图没有显示清晰的斜线？**
+
+A: 可能原因：
+1. 采集时间太短，没有完整的扫频周期
+2. 窗口大小不合适
+3. 数据有丢失或时间戳不连续
+
+建议采集至少一个完整周期（FAKE_IMU_PERIOD 参数设定的时间）。
+
+**Q5: 可以实时绘图吗？**
+
+A: 当前脚本是离线分析。如需实时绘图，可以：
+1. 使用 Python + matplotlib 读取串口实时绘制
+2. 使用 MATLAB 的 serialport 对象实时读取
+3. 参考 `src/examples/px4_mavlink_debug` 使用 MAVLink 传输
+
+---
+
+## 技术支持
+
+如有问题，请：
+1. 检查本文档的"故障排查"章节
+2. 查看 PX4 日志：`dmesg`
+3. 在 PX4 论坛提问：https://discuss.px4.io/
+
+---
+
+## 更新历史
+
+- **2025-10-30** - 初始版本，修改为订阅 fake_imu 数据
+- 基于原始 matlab_csv_serial 模块改进
+
+---
+
+## 许可证
+
+与 PX4 项目相同，采用 BSD 3-Clause License。
 

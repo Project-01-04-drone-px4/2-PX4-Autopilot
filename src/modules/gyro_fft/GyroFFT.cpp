@@ -167,53 +167,84 @@ bool GyroFFT::init()
 
 bool GyroFFT::SensorSelectionUpdate(bool force)
 {
-	if (_sensor_selection_sub.updated() || (_selected_sensor_device_id == 0) || force) {
-		sensor_selection_s sensor_selection{};
-		_sensor_selection_sub.copy(&sensor_selection);
+	// MODIFICATION: Always check for fake_imu first, regardless of sensor_selection
+	// This is useful for testing and demonstration purposes
+	static constexpr uint32_t FAKE_IMU_DEVICE_ID = 1310988;
+	uint32_t target_device_id = 0;
+	bool fake_imu_found = false;
 
-		if ((sensor_selection.gyro_device_id != 0) && (_selected_sensor_device_id != sensor_selection.gyro_device_id)) {
-			// prefer sensor_gyro_fifo if available
-			for (uint8_t i = 0; i < MAX_SENSOR_COUNT; i++) {
-				uORB::SubscriptionData<sensor_gyro_fifo_s> sensor_gyro_fifo_sub{ORB_ID(sensor_gyro_fifo), i};
+	// Always scan for fake_imu on every check
+	for (uint8_t i = 0; i < MAX_SENSOR_COUNT; i++) {
+		uORB::SubscriptionData<sensor_gyro_s> gyro_sub{ORB_ID(sensor_gyro), i};
 
-				if (sensor_gyro_fifo_sub.get().device_id == sensor_selection.gyro_device_id) {
-					if (_sensor_gyro_fifo_sub.ChangeInstance(i) && _sensor_gyro_fifo_sub.registerCallback()) {
-						_sensor_gyro_sub.unregisterCallback();
-						_sensor_gyro_fifo_sub.set_required_updates(sensor_gyro_fifo_s::ORB_QUEUE_LENGTH / 2);
-						_selected_sensor_device_id = sensor_selection.gyro_device_id;
-						_gyro_fifo = true;
+		if (gyro_sub.advertised() && (gyro_sub.get().device_id == FAKE_IMU_DEVICE_ID)) {
+			target_device_id = FAKE_IMU_DEVICE_ID;
+			fake_imu_found = true;
 
-						if (_gyro_fifo_generation_gap_perf == nullptr) {
-							_gyro_fifo_generation_gap_perf = perf_alloc(PC_COUNT, MODULE_NAME": gyro FIFO data gap");
-						}
-
-						return true;
-					}
-				}
+			if (_selected_sensor_device_id != FAKE_IMU_DEVICE_ID) {
+				PX4_INFO("fake_imu detected (device_id %" PRIu32 "), switching to it for FFT analysis", FAKE_IMU_DEVICE_ID);
 			}
 
-			// otherwise use sensor_gyro
-			for (uint8_t i = 0; i < MAX_SENSOR_COUNT; i++) {
-				uORB::SubscriptionData<sensor_gyro_s> sensor_gyro_sub{ORB_ID(sensor_gyro), i};
-
-				if (sensor_gyro_sub.get().device_id == sensor_selection.gyro_device_id) {
-					if (_sensor_gyro_sub.ChangeInstance(i) && _sensor_gyro_sub.registerCallback()) {
-						_sensor_gyro_fifo_sub.unregisterCallback();
-						_sensor_gyro_sub.set_required_updates(sensor_gyro_s::ORB_QUEUE_LENGTH / 2);
-						_selected_sensor_device_id = sensor_selection.gyro_device_id;
-						_gyro_fifo = false;
-
-						if (_gyro_generation_gap_perf == nullptr) {
-							_gyro_generation_gap_perf = perf_alloc(PC_COUNT, MODULE_NAME": gyro data gap");
-						}
-
-						return true;
-					}
-				}
-			}
-
-			PX4_ERR("unable to find or subscribe to selected sensor (%" PRIu32 ")", sensor_selection.gyro_device_id);
+			break;
 		}
+	}
+
+	// If fake_imu not found, fall back to sensor_selection
+	if (!fake_imu_found) {
+		if (_sensor_selection_sub.updated() || (_selected_sensor_device_id == 0) || force) {
+			sensor_selection_s sensor_selection{};
+			_sensor_selection_sub.copy(&sensor_selection);
+			target_device_id = sensor_selection.gyro_device_id;
+		} else {
+			// No update needed if still using same non-fake_imu sensor
+			return false;
+		}
+	}
+
+	if ((target_device_id != 0) && (_selected_sensor_device_id != target_device_id)) {
+		// prefer sensor_gyro_fifo if available
+		for (uint8_t i = 0; i < MAX_SENSOR_COUNT; i++) {
+			uORB::SubscriptionData<sensor_gyro_fifo_s> sensor_gyro_fifo_sub{ORB_ID(sensor_gyro_fifo), i};
+
+			if (sensor_gyro_fifo_sub.get().device_id == target_device_id) {
+				if (_sensor_gyro_fifo_sub.ChangeInstance(i) && _sensor_gyro_fifo_sub.registerCallback()) {
+					_sensor_gyro_sub.unregisterCallback();
+					_sensor_gyro_fifo_sub.set_required_updates(sensor_gyro_fifo_s::ORB_QUEUE_LENGTH / 2);
+					_selected_sensor_device_id = target_device_id;
+					_gyro_fifo = true;
+
+					if (_gyro_fifo_generation_gap_perf == nullptr) {
+						_gyro_fifo_generation_gap_perf = perf_alloc(PC_COUNT, MODULE_NAME": gyro FIFO data gap");
+					}
+
+					PX4_INFO("subscribed to sensor_gyro_fifo instance %d (device_id %" PRIu32 ")", i, target_device_id);
+					return true;
+				}
+			}
+		}
+
+		// otherwise use sensor_gyro
+		for (uint8_t i = 0; i < MAX_SENSOR_COUNT; i++) {
+			uORB::SubscriptionData<sensor_gyro_s> sensor_gyro_sub{ORB_ID(sensor_gyro), i};
+
+			if (sensor_gyro_sub.get().device_id == target_device_id) {
+				if (_sensor_gyro_sub.ChangeInstance(i) && _sensor_gyro_sub.registerCallback()) {
+					_sensor_gyro_fifo_sub.unregisterCallback();
+					_sensor_gyro_sub.set_required_updates(sensor_gyro_s::ORB_QUEUE_LENGTH / 2);
+					_selected_sensor_device_id = target_device_id;
+					_gyro_fifo = false;
+
+					if (_gyro_generation_gap_perf == nullptr) {
+						_gyro_generation_gap_perf = perf_alloc(PC_COUNT, MODULE_NAME": gyro data gap");
+					}
+
+					PX4_INFO("subscribed to sensor_gyro instance %d (device_id %" PRIu32 ")", i, target_device_id);
+					return true;
+				}
+			}
+		}
+
+		PX4_ERR("unable to find or subscribe to selected sensor (%" PRIu32 ")", target_device_id);
 	}
 
 	return false;

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020-2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,54 +32,98 @@
  ****************************************************************************/
 
 /**
-* IMU gyro FFT enable.
-*
-* @boolean
-* @reboot_required true
-* @group Sensors
-*/
-PARAM_DEFINE_INT32(IMU_GYRO_FFT_EN, 1);
+ * @file fake_imu_params.c
+ * Parameters for fake IMU chirp signal generator
+ */
 
 /**
-* IMU gyro FFT minimum frequency.
-*
-* @min 1
-* @max 1000
-* @unit Hz
-* @reboot_required true
-* @group Sensors
-*/
-PARAM_DEFINE_FLOAT(IMU_GYRO_FFT_MIN, 2.f);
+ * Fake IMU X axis start frequency
+ *
+ * Start frequency for X axis chirp signal
+ *
+ * @unit Hz
+ * @min 0
+ * @max 1000
+ * @decimal 1
+ * @group Fake IMU
+ */
+PARAM_DEFINE_FLOAT(FAKE_IMU_X_F0, 0.0f);
 
 /**
-* IMU gyro FFT maximum frequency.
-*
-* @min 1
-* @max 2000
-* @unit Hz
-* @reboot_required true
-* @group Sensors
-*/
-PARAM_DEFINE_FLOAT(IMU_GYRO_FFT_MAX, 1000.f);
+ * Fake IMU X axis stop frequency
+ *
+ * Stop frequency for X axis chirp signal
+ *
+ * @unit Hz
+ * @min 0
+ * @max 1000
+ * @decimal 1
+ * @group Fake IMU
+ */
+PARAM_DEFINE_FLOAT(FAKE_IMU_X_F1, 10.0f);
 
 /**
-* IMU gyro FFT length.
-*
-* @value 256 256
-* @value 512 512
-* @value 1024 1024
-* @value 4096 4096
-* @unit Hz
-* @reboot_required true
-* @group Sensors
-*/
-PARAM_DEFINE_INT32(IMU_GYRO_FFT_LEN, 256);
+ * Fake IMU Y axis start frequency
+ *
+ * Start frequency for Y axis chirp signal
+ *
+ * @unit Hz
+ * @min 0
+ * @max 2000
+ * @decimal 1
+ * @group Fake IMU
+ */
+PARAM_DEFINE_FLOAT(FAKE_IMU_Y_F0, 0.0f);
 
 /**
-* IMU gyro FFT SNR.
-*
-* @min 1
-* @max 30
-* @group Sensors
-*/
-PARAM_DEFINE_FLOAT(IMU_GYRO_FFT_SNR, 5.f);
+ * Fake IMU Y axis stop frequency
+ *
+ * Stop frequency for Y axis chirp signal
+ *
+ * @unit Hz
+ * @min 0
+ * @max 2000
+ * @decimal 1
+ * @group Fake IMU
+ */
+PARAM_DEFINE_FLOAT(FAKE_IMU_Y_F1, 100.0f);
+
+/**
+ * Fake IMU Z axis start frequency
+ *
+ * Start frequency for Z axis chirp signal
+ *
+ * @unit Hz
+ * @min 0
+ * @max 4000
+ * @decimal 1
+ * @group Fake IMU
+ */
+PARAM_DEFINE_FLOAT(FAKE_IMU_Z_F0, 0.0f);
+
+/**
+ * Fake IMU Z axis stop frequency
+ *
+ * Stop frequency for Z axis chirp signal
+ *
+ * @unit Hz
+ * @min 0
+ * @max 4000
+ * @decimal 1
+ * @group Fake IMU
+ */
+PARAM_DEFINE_FLOAT(FAKE_IMU_Z_F1, 1000.0f);
+
+/**
+ * Fake IMU sweep period
+ *
+ * Time period for one complete frequency sweep
+ *
+ * @unit s
+ * @min 1
+ * @max 60
+ * @decimal 1
+ * @group Fake IMU
+ */
+PARAM_DEFINE_FLOAT(FAKE_IMU_PERIOD, 10.0f);
+
