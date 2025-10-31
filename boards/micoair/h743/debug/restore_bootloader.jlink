@@ -1,0 +1,33 @@
+/*********************************************************************
+*
+*   JLink脚本 - MicoAir H743恢复Bootloader
+*
+*   功能：重新烧录Bootloader（如果被意外擦除）
+*
+*   使用方法：
+*   JLinkExe -device STM32H743VI -if SWD -speed 4000 -CommandFile restore_bootloader.jlink
+*
+*********************************************************************/
+
+// 连接配置
+si SWD
+speed 4000
+
+// 连接到目标
+connect
+
+// 擦除Bootloader区域
+erase 0x08000000 0x08007FFF
+
+// 下载Bootloader (需要先准备bootloader.bin文件)
+loadbin ../extras/micoair_h743_bootloader.bin 0x08000000
+
+// 验证下载
+verifybin ../extras/micoair_h743_bootloader.bin 0x08000000
+
+// 复位CPU
+r
+
+// 退出
+qc
+
