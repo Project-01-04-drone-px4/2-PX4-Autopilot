@@ -37,11 +37,16 @@
  * Matlab CSV / ASCII format interface at 921600 baud, 8 data bits,
  * 1 stop bit, no parity
  *
+
+ * Modified to subscribe to fake_imu sensor data and output via serial port
+ *
  * @author Lorenz Meier <lm@inf.ethz.ch>
+ * @author Modified for fake_imu integration
  */
 
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/tasks.h>
+#include <px4_platform_common/log.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -49,6 +54,7 @@
 #include <stdbool.h>
 #include <fcntl.h>
 #include <float.h>
+#include <inttypes.h>
 #include <sys/prctl.h>
 #include <drivers/drv_hrt.h>
 #include <termios.h>
@@ -62,6 +68,7 @@
 
 #include <uORB/topics/sensor_accel.h>
 #include <uORB/topics/sensor_gyro.h>
+#include <uORB/topics/sensor_gyro_fifo.h>
 
 __EXPORT int matlab_csv_serial_main(int argc, char *argv[]);
 static bool thread_should_exit = false;		/**< Daemon exit flag */
@@ -134,21 +141,23 @@ int matlab_csv_serial_main(int argc, char *argv[])
 
 int matlab_csv_serial_thread_main(int argc, char *argv[])
 {
-
 	if (argc < 2) {
-		errx(1, "need a serial port name as argument");
+		PX4_ERR("need a serial port name as argument");
+		PX4_ERR("usage: matlab_csv_serial start <serial_port>");
+		return -1;
 	}
 
 	const char *uart_name = argv[1];
 
-	warnx("opening port %s", uart_name);
+	PX4_INFO("opening port %s", uart_name);
 
 	int serial_fd = open(uart_name, O_RDWR | O_NOCTTY);
 
 	unsigned speed = 921600;
 
 	if (serial_fd < 0) {
-		err(1, "failed to open port: %s", uart_name);
+		PX4_ERR("failed to open port: %s", uart_name);
+		return -1;
 	}
 
 	/* Try to set baud rate */
@@ -157,7 +166,7 @@ int matlab_csv_serial_thread_main(int argc, char *argv[])
 
 	/* Back up the original uart configuration to restore it after exit */
 	if ((termios_state = tcgetattr(serial_fd, &uart_config)) < 0) {
-		warnx("ERR GET CONF %s: %d\n", uart_name, termios_state);
+		PX4_WARN("ERR GET CONF %s: %d", uart_name, termios_state);
 		close(serial_fd);
 		return -1;
 	}
@@ -166,75 +175,203 @@ int matlab_csv_serial_thread_main(int argc, char *argv[])
 	uart_config.c_oflag &= ~ONLCR;
 
 	/* USB serial is indicated by /dev/ttyACM0*/
-	if (strcmp(uart_name, "/dev/ttyACM0") != OK && strcmp(uart_name, "/dev/ttyACM1") != OK) {
+	if (strcmp(uart_name, "/dev/ttyACM0") != 0 && strcmp(uart_name, "/dev/ttyACM1") != 0) {
 
 		/* Set baud rate */
 		if (cfsetispeed(&uart_config, speed) < 0 || cfsetospeed(&uart_config, speed) < 0) {
-			warnx("ERR SET BAUD %s: %d\n", uart_name, termios_state);
+			PX4_WARN("ERR SET BAUD %s: %d", uart_name, termios_state);
 			close(serial_fd);
 			return -1;
 		}
-
 	}
 
 	if ((termios_state = tcsetattr(serial_fd, TCSANOW, &uart_config)) < 0) {
-		warnx("ERR SET CONF %s\n", uart_name);
+		PX4_WARN("ERR SET CONF %s", uart_name);
 		close(serial_fd);
 		return -1;
 	}
 
-	/* subscribe to vehicle status, attitude, sensors and flow*/
-	struct sensor_accel_s accel0;
-	struct sensor_accel_s accel1;
-	struct sensor_gyro_s gyro0;
-	struct sensor_gyro_s gyro1;
+	PX4_INFO("Serial port configured successfully");
+	PX4_INFO("Searching for fake_imu sensor (device ID 1310988)...");
 
-	/* subscribe to parameter changes */
-	int accel0_sub = orb_subscribe_multi(ORB_ID(sensor_accel), 0);
-	int accel1_sub = orb_subscribe_multi(ORB_ID(sensor_accel), 1);
-	int gyro0_sub = orb_subscribe_multi(ORB_ID(sensor_gyro), 0);
-	int gyro1_sub = orb_subscribe_multi(ORB_ID(sensor_gyro), 1);
+	/* fake_imu uses device ID 1310988 (DRV_IMU_DEVTYPE_SIM) */
+	/* In FakeImu.cpp: accel is published before gyro, so we only need to subscribe to gyro */
+	struct sensor_accel_s accel;
+	struct sensor_gyro_s gyro;
 
-	thread_running = true;
+	#define MAX_SENSOR_INSTANCES 8
+	#define FAKE_IMU_DEVICE_ID 1310988
 
-	while (!thread_should_exit) {
+	int gyro_instance = -1;
+	int accel_instance = -1;
 
-		/*This runs at the rate of the sensors */
-		struct pollfd fds[] = {
-			{ .fd = accel0_sub, .events = POLLIN }
-		};
+	/* Search for fake_imu gyro instance (primary trigger) */
+	for (int i = 0; i < MAX_SENSOR_INSTANCES; i++) {
+		int sub = orb_subscribe_multi(ORB_ID(sensor_gyro), i);
 
-		/* wait for a sensor update, check for exit condition every 500 ms */
-		int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), 500);
+		if (sub >= 0) {
+			/* Use poll to wait for data (up to 100ms) */
+			struct pollfd fds[1];
+			fds[0].fd = sub;
+			fds[0].events = POLLIN;
 
-		if (ret < 0) {
-			/* poll error, ignore */
+			int poll_ret = poll(fds, 1, 100);  // Wait up to 100ms for data
 
-		} else if (ret == 0) {
-			/* no return value, ignore */
-			warnx("no sensor data");
-
-		} else {
-
-			/* accel0 update available? */
-			if (fds[0].revents & POLLIN) {
-				orb_copy(ORB_ID(sensor_accel), accel0_sub, &accel0);
-				orb_copy(ORB_ID(sensor_accel), accel1_sub, &accel1);
-				orb_copy(ORB_ID(sensor_gyro), gyro0_sub, &gyro0);
-				orb_copy(ORB_ID(sensor_gyro), gyro1_sub, &gyro1);
-
-				// write out on accel 0, but collect for all other sensors as they have updates
-				dprintf(serial_fd, "%"PRId64",%d,%d,%d,%d,%d,%d\n", accel0.timestamp, (int)accel0.x, (int)accel0.y,
-					(int)accel0.z,
-					(int)accel1.x, (int)accel1.y, (int)accel1.z);
+			if (poll_ret > 0 && (fds[0].revents & POLLIN)) {
+				if (orb_copy(ORB_ID(sensor_gyro), sub, &gyro) == 0) {
+					if (gyro.device_id == FAKE_IMU_DEVICE_ID) {
+						gyro_instance = i;
+						orb_unsubscribe(sub);
+						PX4_INFO("Found fake_imu gyro on instance %d", i);
+						break;
+					}
+				}
 			}
 
+			orb_unsubscribe(sub);
 		}
 	}
 
-	warnx("exiting");
+	/* Search for fake_imu accel instance (for reading, not triggering) */
+	for (int i = 0; i < MAX_SENSOR_INSTANCES; i++) {
+		int sub = orb_subscribe_multi(ORB_ID(sensor_accel), i);
+
+		if (sub >= 0) {
+			/* Use poll to wait for data (up to 100ms) */
+			struct pollfd fds[1];
+			fds[0].fd = sub;
+			fds[0].events = POLLIN;
+
+			int poll_ret = poll(fds, 1, 100);  // Wait up to 100ms for data
+
+			if (poll_ret > 0 && (fds[0].revents & POLLIN)) {
+				if (orb_copy(ORB_ID(sensor_accel), sub, &accel) == 0) {
+					if (accel.device_id == FAKE_IMU_DEVICE_ID) {
+						accel_instance = i;
+						orb_unsubscribe(sub);
+						PX4_INFO("Found fake_imu accel on instance %d", i);
+						break;
+					}
+				}
+			}
+
+			orb_unsubscribe(sub);
+		}
+	}
+
+	/* Check if fake_imu was found */
+	if (gyro_instance < 0 || accel_instance < 0) {
+		PX4_ERR("fake_imu not found! Is it running?");
+		PX4_ERR("  gyro_instance: %d, accel_instance: %d", gyro_instance, accel_instance);
+		PX4_ERR("  Run 'fake_imu start' first!");
+		close(serial_fd);
+		return -1;
+	}
+
+	/* Subscribe to gyro (primary trigger, like VehicleIMU does) */
+	/* Subscribe to accel (for reading only) */
+	int gyro_sub = orb_subscribe_multi(ORB_ID(sensor_gyro), gyro_instance);
+	int accel_sub = orb_subscribe_multi(ORB_ID(sensor_accel), accel_instance);
+
+	if (gyro_sub < 0 || accel_sub < 0) {
+		PX4_ERR("Failed to subscribe to fake_imu instances");
+		close(serial_fd);
+		return -1;
+	}
+
+	PX4_INFO("Subscribed to fake_imu: gyro (trigger) on inst %d, accel (read) on inst %d",
+	         gyro_instance, accel_instance);
+
+	thread_running = true;
+
+	PX4_INFO("Started! Writing CSV data to serial port...");
+	PX4_INFO("CSV format: timestamp_us,accel_x,accel_y,accel_z,gyro_x,gyro_y,gyro_z");
+	PX4_INFO("Strategy: Poll on gyro (like VehicleIMU), accel is always published before gyro");
+
+	// Write CSV header to serial port
+	dprintf(serial_fd, "# timestamp_us,accel_x,accel_y,accel_z,gyro_x,gyro_y,gyro_z\n");
+
+	uint32_t sample_count = 0;
+	uint64_t start_time = hrt_absolute_time();
+	uint64_t last_print_time = start_time;
+
+	/* Setup poll for ONLY gyro subscription (like VehicleIMU does) */
+	/* Accel is published before gyro in FakeImu::Run(), so when gyro arrives, accel is ready */
+	struct pollfd fds[1];
+	fds[0].fd = gyro_sub;
+	fds[0].events = POLLIN;
+
+	PX4_INFO("Entering main loop - polling on gyro only (zero latency)");
+
+	while (!thread_should_exit) {
+
+		/* Block waiting for gyro data with poll() */
+		/* When gyro arrives, accel is already published (see FakeImu.cpp line 118, 122) */
+		int ret = poll(fds, 1, 500);  // 500ms timeout to check exit condition
+
+		if (ret < 0) {
+			/* Poll error */
+			if (errno != EINTR) {  // Ignore interrupted system call
+				PX4_ERR("poll error: %d", errno);
+			}
+
+			continue;
+
+		} else if (ret == 0) {
+			/* Timeout - no data for 500ms */
+			PX4_WARN("No gyro data for 500ms - is fake_imu still running?");
+			continue;
+
+		} else {
+			/* Gyro data available - this is our trigger (like VehicleIMU) */
+
+			if (fds[0].revents & POLLIN) {
+				/* Read gyro first (our trigger) */
+				orb_copy(ORB_ID(sensor_gyro), gyro_sub, &gyro);
+
+				/* Verify it's fake_imu data */
+				if (gyro.device_id == FAKE_IMU_DEVICE_ID) {
+
+					/* Read corresponding accel (always ready since published before gyro) */
+					orb_copy(ORB_ID(sensor_accel), accel_sub, &accel);
+
+					/* Verify accel is also from fake_imu */
+					if (accel.device_id == FAKE_IMU_DEVICE_ID) {
+
+						/* Write CSV line with gyro timestamp as reference */
+						/* Like VehicleIMU: gyro drives the timing */
+						dprintf(serial_fd, "%llu,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n",
+						        (unsigned long long)gyro.timestamp,
+						        (double)accel.x,
+						        (double)accel.y,
+						        (double)accel.z,
+						        (double)gyro.x,
+						        (double)gyro.y,
+						        (double)gyro.z);
+
+						sample_count++;
+					}
+				}
+			}
+
+			/* Print status every second */
+			uint64_t now = hrt_absolute_time();
+
+			if (now - last_print_time > 1000000) {  // 1 second
+				float elapsed_sec = (float)(now - start_time) / 1e6f;
+				float rate = (float)sample_count / elapsed_sec;
+
+				PX4_INFO("Samples: %" PRIu32 " (%.1f Hz)", sample_count, (double)rate);
+
+				last_print_time = now;
+			}
+		}
+	}
+
+	PX4_INFO("Exiting... Total samples: %" PRIu32, sample_count);
 	thread_running = false;
 
+	close(serial_fd);
 	fflush(stdout);
 	return 0;
 }

@@ -71,14 +71,15 @@ void FakeImu::Run()
 
 	const double dt_s = 1 / IMU_RATE_HZ;
 
-	const double x_f0 = 0.0;    //    0 Hz X frequency start
-	const double x_f1 = 10.0;   //   10 Hz X frequency stop
+	// Get chirp parameters from parameter system
+	const double x_f0 = _param_x_f0.get();
+	const double x_f1 = _param_x_f1.get();
 
-	const double y_f0 = 0.0;    //   10 Hz Y frequency start
-	const double y_f1 = 100.0;  // 1000 Hz Y frequency stop
+	const double y_f0 = _param_y_f0.get();
+	const double y_f1 = _param_y_f1.get();
 
-	const double z_f0 = 0.0;    //  100 Hz Z frequency start
-	const double z_f1 = 1000.0; // 1000 Hz Z frequency stop
+	const double z_f0 = _param_z_f0.get();
+	const double z_f1 = _param_z_f1.get();
 
 	// amplitude
 	static constexpr double A = (INT16_MAX - 1);
@@ -87,8 +88,8 @@ void FakeImu::Run()
 		_time_start_us = gyro.timestamp_sample;
 	}
 
-	// 10 second sweep
-	const double T = 10.0;
+	// Get sweep period from parameter system
+	const double T = _param_period.get();
 
 	const double timestamp_sample_s = static_cast<double>(gyro.timestamp_sample - _time_start_us) / 1e6;
 

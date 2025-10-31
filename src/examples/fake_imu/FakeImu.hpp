@@ -69,7 +69,7 @@ public:
 	bool init();
 
 private:
-	static constexpr double IMU_RATE_HZ = 8000;
+	static constexpr double IMU_RATE_HZ = 2000;
 
 	void Run() override;
 
@@ -83,4 +83,14 @@ private:
 #if defined(FAKE_IMU_FAKE_ESC_STATUS)
 	uORB::PublicationData<esc_status_s> _esc_status_pub {ORB_ID(esc_status)};
 #endif // FAKE_IMU_FAKE_ESC_STATUS
+
+	DEFINE_PARAMETERS(
+		(ParamFloat<px4::params::FAKE_IMU_X_F0>) _param_x_f0,
+		(ParamFloat<px4::params::FAKE_IMU_X_F1>) _param_x_f1,
+		(ParamFloat<px4::params::FAKE_IMU_Y_F0>) _param_y_f0,
+		(ParamFloat<px4::params::FAKE_IMU_Y_F1>) _param_y_f1,
+		(ParamFloat<px4::params::FAKE_IMU_Z_F0>) _param_z_f0,
+		(ParamFloat<px4::params::FAKE_IMU_Z_F1>) _param_z_f1,
+		(ParamFloat<px4::params::FAKE_IMU_PERIOD>) _param_period
+	)
 };
