@@ -9,7 +9,8 @@ param set-default BAT1_V_DIV 21.2
 param set-default BAT1_V_EMPTY 3.2
 
 param set-default SYS_HAS_MAG 1
-param set-default PWM_MAIN_TIM0 -4
+# 移植修改：使用PWM代替DShot
+param set-default PWM_MAIN_TIM0 400     # PWM 400Hz (原来是-4 DShot300)
 param set-default RC_INPUT_PROTO -1
 
 param set-default IMU_GYRO_CUTOFF 80
@@ -23,3 +24,20 @@ param set-default MSP_OSD_CONFIG 102
 param set-default CA_AIRFRAME 0
 param set-default CA_ROTOR_COUNT 4
 param set-default CBRK_SUPPLY_CHK 894281
+
+# ============ 移植配置：EKF2单例模式 + 仅BMI270 ============
+# EKF2单例模式配置
+param set-default SENS_IMU_MODE 1        # 单实例模式（由Sensors模块选择IMU）
+param set-default EKF2_MULTI_IMU 0       # 禁用EKF2多实例
+param set-default EKF2_MULTI_MAG 0       # 禁用多磁力计EKF2
+
+# 传感器选择：强制选择BMI270（假设为Instance 0）
+# 如果BMI270是Instance 1，则设置为1
+param set-default SENS_IMU_PRIME 0      # 选择第一个IMU
+
+# PWM电机输出配置（400Hz PWM）
+param set-default PWM_MAIN_FUNC1 101    # 电机1
+param set-default PWM_MAIN_FUNC2 102    # 电机2
+param set-default PWM_MAIN_FUNC3 103    # 电机3
+param set-default PWM_MAIN_FUNC4 104    # 电机4
+# PWM_MAIN_TIM0已在上方第13行修改为400（PWM 400Hz）
