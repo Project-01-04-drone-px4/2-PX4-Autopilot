@@ -593,4 +593,118 @@ void LoggedTopics::initialize_configured_topics(SDLogProfileMask profile)
 	if (profile & SDLogProfileMask::HIGH_RATE_SENSORS) {
 		add_high_rate_sensors_topics();
 	}
+
+	if (profile & SDLogProfileMask::ERMAO) {
+		add_ermao_topics();
+	}
+}
+
+void LoggedTopics::add_ermao_topics()
+{
+	// ========== ERmao Mode: Compact High-Rate Logging for Control Analysis ==========
+	//
+	// IMPORTANT: This mode uses compact log messages (Log*) specifically designed for
+	// high-rate data logging without data loss. These messages:
+	//   - Remove metadata and redundant fields (device IDs, calibration counters, etc.)
+	//   - Use larger uORB queue depths (16-32 vs 4-8) to prevent data loss
+	//   - Reduce message size by 30-64%, decreasing SD card write bandwidth
+	//   - Maintain full sampling rate for accurate signal chain analysis
+	//
+	// Data Flow: Sensors → State Estimation → Outer Loop (Attitude) → Inner Loop (Rates) → Actuators
+	//
+	// Total data rate: ~90 KB/s (vs ~160 KB/s with original messages, -45%)
+	// Memory overhead: +6 KB for larger queues (acceptable)
+	//
+	// ================================================================================
+
+	// ===== 1. Raw Sensor Data Layer =====
+	// log_gyro_fifo - Compact gyroscope FIFO data (117 bytes vs 221 bytes, -47%)
+	//   - Sample rate: 1000-8000 Hz (BMI270: 1600 Hz → 50 Hz publish rate)
+	//   - Only valid samples (2-8 instead of 32), pre-scaled to rad/s
+	//   - Queue depth: 32 (vs 4, prevents data loss)
+	//   - Removed: device_id, dt (can be calculated from timestamps)
+	add_optional_topic("log_gyro_fifo");
+
+	// sensor_gyro_fft - Gyroscope FFT spectrum (kept original, already compact)
+	//   - Sample rate: 50 Hz
+	//   - Usage: Vibration spectrum analysis
+	add_optional_topic("sensor_gyro_fft");
+
+	// ===== 2. Preprocessed IMU Data Layer =====
+	// log_angular_velocity - Compact angular velocity (28 bytes vs 40 bytes, -30%)
+	//   - Sample rate: ~667 Hz
+	//   - Removed: xyz_derivative (can be calculated in post-processing)
+	//   - Queue depth: 32 (vs 8)
+	//   - Usage: Inner loop actual feedback value
+	add_topic("log_angular_velocity");
+
+	// log_vehicle_imu - Compact integrated IMU data (40 bytes vs 60 bytes, -33%)
+	//   - Sample rate: ~250 Hz
+	//   - Removed: device_ids, dt, clipping flags, calibration counters
+	//   - Queue depth: 16 (vs 8)
+	//   - Usage: Attitude estimation input
+	add_topic("log_vehicle_imu");
+
+	// log_sensor_combined - Compact sensor fusion data (32 bytes vs 52 bytes, -38%)
+	//   - Sample rate: ~1000 Hz
+	//   - Removed: integral_dt, clipping flags, calibration counters
+	//   - Queue depth: 32 (vs 8)
+	//   - Usage: EKF input
+	add_topic("log_sensor_combined");
+
+	// ===== 3. State Estimation Layer (Outer Loop Actual Value) =====
+	// log_attitude - Compact attitude data (28 bytes vs 65 bytes, -57%)
+	//   - Sample rate: ~250 Hz
+	//   - Only Euler angles (roll/pitch/yaw), quaternion removed
+	//   - Queue depth: 16 (vs 8)
+	//   - Usage: Outer loop actual feedback value
+	add_topic("log_attitude");
+
+	// ===== 4. Control Setpoint Layer =====
+	// log_attitude_setpoint - Compact attitude setpoint (20 bytes vs 56 bytes, -64%)
+	//   - Sample rate: Full rate (~250 Hz)
+	//   - Only Euler angles (roll_body/pitch_body/yaw_body)
+	//   - Removed: quaternion q_d, yaw_sp_move_rate, thrust_body
+	//   - Queue depth: 16 (vs 8)
+	//   - Usage: Outer loop setpoint
+	add_topic("log_attitude_setpoint");
+
+	// log_rates_setpoint - Compact angular rate setpoint (20 bytes vs 37 bytes, -46%)
+	//   - Sample rate: Full rate (~250 Hz)
+	//   - Only rate values (roll/pitch/yaw)
+	//   - Removed: thrust_body, reset_integral
+	//   - Queue depth: 16 (vs 8)
+	//   - Usage: Inner loop setpoint
+	add_topic("log_rates_setpoint");
+
+	// ===== 5. Actuator Output Layer =====
+	// log_actuator_motors - Compact motor output (32 bytes vs 81 bytes, -60%)
+	//   - Sample rate: ~250 Hz
+	//   - Only 4 motors for quadcopter (instead of 16)
+	//   - Removed: reversible_flags
+	//   - Queue depth: 16 (vs 8)
+	//   - Usage: Control output to motors
+	add_topic("log_actuator_motors");
+
+	// ================================================================================
+	// Data Analysis Recommendations:
+	//   1. Inner loop: log_rates_setpoint vs log_angular_velocity
+	//      - Both in rad/s, direct comparison
+	//      - Calculate tracking error, bandwidth, overshoot
+	//
+	//   2. Outer loop: log_attitude_setpoint vs log_attitude
+	//      - Both in rad (Euler angles), direct comparison
+	//      - Calculate tracking error, settling time, stability
+	//
+	//   3. Vibration: log_gyro_fifo + sensor_gyro_fft
+	//      - High-rate raw data + spectrum analysis
+	//      - Identify vibration sources and frequencies
+	//
+	//   4. Signal chain: log_gyro_fifo → log_angular_velocity → log_actuator_motors
+	//      - Full-rate end-to-end latency measurement
+	//      - No data loss with enlarged queues
+	//
+	// NOTE: Publishers (IMU drivers, EKF2, controllers) must be modified to publish
+	//       these compact log messages. See ERmao精简日志方案.md for implementation details.
+	// ================================================================================
 }

@@ -127,6 +127,14 @@ set(msg_files
 	LandingTargetPose.msg
 	LaunchDetectionStatus.msg
 	LedControl.msg
+	LogActuatorMotors.msg
+	LogAngularVelocity.msg
+	LogAttitude.msg
+	LogAttitudeSetpoint.msg
+	LogGyroFifo.msg
+	LogRatesSetpoint.msg
+	LogSensorCombined.msg
+	LogVehicleImu.msg
 	LoggerStatus.msg
 	LogMessage.msg
 	MagnetometerBiasEstimate.msg

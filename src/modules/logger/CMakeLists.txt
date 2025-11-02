@@ -60,3 +60,17 @@ px4_add_module(
 		version
 		component_general_json # for checksums.h
 	)
+
+# ERmao Log Publisher - Independent module for optimized logging
+px4_add_module(
+	MODULE modules__ermao_log_publisher
+	MAIN ermao_log_publisher
+	PRIORITY "SCHED_PRIORITY_DEFAULT"
+	STACK_MAIN 2048
+	COMPILE_FLAGS
+		${MAX_CUSTOM_OPT_LEVEL}
+	SRCS
+		ERmaoLogPublisher.cpp
+	DEPENDS
+		uORB
+	)

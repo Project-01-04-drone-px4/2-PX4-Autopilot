@@ -253,7 +253,7 @@ Logger *Logger::instantiate(int argc, char *argv[])
 {
 	uint32_t log_interval = 3500;
 	float rate_factor = 1.0f;
-	int log_buffer_size = 12 * 1024;
+	int log_buffer_size = 128 * 1024;  // ERmao需要大缓冲区：860 KB/s数据率
 	Logger::LogMode log_mode = Logger::LogMode::while_armed;
 	bool error_flag = false;
 	bool log_name_timestamp = false;

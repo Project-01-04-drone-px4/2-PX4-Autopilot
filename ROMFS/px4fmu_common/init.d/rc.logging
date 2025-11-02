@@ -50,6 +50,14 @@ then
 fi
 
 #
+# Start ERmao log publisher for optimized logging (if enabled)
+#
+if param compare ERMAO_LOG_ENABLE 1
+then
+	ermao_log_publisher start
+fi
+
+#
 # Start logger if any logging backend is enabled
 #
 if ! param compare SDLOG_BACKEND 0

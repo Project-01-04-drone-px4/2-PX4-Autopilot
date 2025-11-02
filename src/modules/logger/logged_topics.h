@@ -55,7 +55,8 @@ enum class SDLogProfileMask : int32_t {
 	RAW_IMU_GYRO_FIFO =     1 << 8,
 	RAW_IMU_ACCEL_FIFO =    1 << 9,
 	MAVLINK_TUNNEL =        1 << 10,
-	HIGH_RATE_SENSORS =     1 << 11
+	HIGH_RATE_SENSORS =     1 << 11,
+	ERMAO =                 1 << 12
 };
 
 enum class MissionLogType : int32_t {
@@ -177,6 +178,7 @@ private:
 	void add_raw_imu_accel_fifo();
 	void add_mavlink_tunnel();
 	void add_high_rate_sensors_topics();
+	void add_ermao_topics();
 
 	/**
 	 * add a logged topic (called by add_topic() above).

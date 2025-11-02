@@ -83,7 +83,8 @@ parameters:
           sensor comparison (low rate raw IMU, Baro and magnetometer data) 7 : Topics
           for computer vision and collision prevention 8 : Raw FIFO high-rate IMU
           (Gyro) 9 : Raw FIFO high-rate IMU (Accel) 10: Logging of mavlink tunnel
-          message (useful for payload communication debugging)'
+          message (useful for payload communication debugging) 11: High rate sensors
+          12: ERmao mode (full rate IMU signal chain and control data)'
       type: bitmask
       bit:
         0: Default set (general log analysis)
@@ -98,9 +99,10 @@ parameters:
         9: Raw FIFO high-rate IMU (Accel)
         10: Mavlink tunnel message logging
         11: High rate sensors
+        12: ERmao mode (full rate IMU signal chain)
       default: 1
       min: 0
-      max: 4095
+      max: 8191
       reboot_required: true
     SDLOG_DIRS_MAX:
       description:
@@ -122,3 +124,13 @@ parameters:
         long: If set to 1, add an ID to the log, which uniquely identifies the vehicle
       type: boolean
       default: 1
+    ERMAO_LOG_ENABLE:
+      description:
+        short: Enable ERmao optimized logging
+        long: 'When enabled, the ERmaoLogPublisher module converts full-size uORB topics
+          to compact log-optimized versions. This enables full-rate logging without data
+          loss by removing redundant fields, using larger queue depths, and reducing
+          message size by 30-64%. Total data rate reduced from ~160 KB/s to ~90 KB/s.'
+      type: boolean
+      default: 1
+      reboot_required: true
