@@ -11,5 +11,10 @@ float32[4] q                    # Quaternion rotation from the FRD body frame to
 float32[4] delta_q_reset        # Amount by which quaternion has changed during last reset
 uint8 quat_reset_counter        # Quaternion reset counter
 
+# Euler angles (converted from quaternion for convenience in logging and analysis)
+float32 roll                    # Roll angle (rad)
+float32 pitch                   # Pitch angle (rad)
+float32 yaw                     # Yaw angle (rad)
+
 # TOPICS vehicle_attitude vehicle_attitude_groundtruth external_ins_attitude
 # TOPICS estimator_attitude

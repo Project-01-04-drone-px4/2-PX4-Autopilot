@@ -34,6 +34,7 @@
 #include "EKF2Selector.hpp"
 
 using namespace time_literals;
+using matrix::Eulerf;
 using matrix::Quatf;
 using matrix::Vector2f;
 using math::constrain;
@@ -404,14 +405,21 @@ void EKF2Selector::PublishVehicleAttitude()
 		// save last primary estimator_attitude as published with original resets
 		_attitude_last = attitude;
 
-		if (publish) {
-			// republish with total reset count and current timestamp
-			attitude.quat_reset_counter = _quat_reset_counter;
-			_delta_q_reset.copyTo(attitude.delta_q_reset);
+	if (publish) {
+		// republish with total reset count and current timestamp
+		attitude.quat_reset_counter = _quat_reset_counter;
+		_delta_q_reset.copyTo(attitude.delta_q_reset);
 
-			attitude.timestamp = hrt_absolute_time();
-			_vehicle_attitude_pub.publish(attitude);
-		}
+		// Convert quaternion to Euler angles for logging and analysis
+		const Quatf q(attitude.q);
+		const Eulerf euler(q);
+		attitude.roll = euler.phi();
+		attitude.pitch = euler.theta();
+		attitude.yaw = euler.psi();
+
+		attitude.timestamp = hrt_absolute_time();
+		_vehicle_attitude_pub.publish(attitude);
+	}
 	}
 }
 

@@ -195,6 +195,12 @@ MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt)
 
 	q_sp.copyTo(attitude_setpoint.q_d);
 
+	// Convert quaternion to Euler angles for logging and analysis
+	const Eulerf euler_sp(q_sp);
+	attitude_setpoint.roll_body = euler_sp.phi();
+	attitude_setpoint.pitch_body = euler_sp.theta();
+	attitude_setpoint.yaw_body = euler_sp.psi();
+
 	attitude_setpoint.thrust_body[2] = -throttle_curve(_manual_control_setpoint.throttle);
 
 	attitude_setpoint.timestamp = hrt_absolute_time();

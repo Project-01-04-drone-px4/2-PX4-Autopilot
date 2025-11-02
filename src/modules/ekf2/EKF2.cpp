@@ -1041,6 +1041,13 @@ void EKF2::PublishAttitude(const hrt_abstime &timestamp)
 		att.timestamp_sample = timestamp;
 		_ekf.getQuaternion().copyTo(att.q);
 
+		// Convert quaternion to Euler angles for logging and analysis
+		const Quatf q(att.q);
+		const Eulerf euler(q);
+		att.roll = euler.phi();
+		att.pitch = euler.theta();
+		att.yaw = euler.psi();
+
 		_ekf.get_quat_reset(&att.delta_q_reset[0], &att.quat_reset_counter);
 		att.timestamp = _replay_mode ? timestamp : hrt_absolute_time();
 		_attitude_pub.publish(att);
