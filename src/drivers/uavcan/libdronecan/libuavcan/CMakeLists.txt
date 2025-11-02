@@ -70,6 +70,8 @@ include_directories(include)
 file(GLOB_RECURSE LIBUAVCAN_CXX_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "src/*.cpp")
 add_library(uavcan STATIC ${LIBUAVCAN_CXX_FILES})
 add_dependencies(uavcan libuavcan_dsdlc)
+# Disable shadow warning to avoid NuttX signal.h compatibility issues
+target_compile_options(uavcan PRIVATE -Wno-shadow)
 
 install(TARGETS uavcan                            DESTINATION lib)
 install(DIRECTORY include/uavcan                  DESTINATION include)
