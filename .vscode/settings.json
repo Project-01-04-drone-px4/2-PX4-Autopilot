@@ -129,4 +129,25 @@
         "yaml.schemas": {
                 "${workspaceFolder}/validation/module_schema.yaml": "${workspaceFolder}/src/modules/*/module.yaml"
         },
+
+        // 启用语义高亮（需要C/C++插件或Clangd）
+        "editor.semanticHighlighting.enabled": true,
+
+        // 括号配对着色
+        "editor.bracketPairColorization.enabled": true,
+        "editor.guides.bracketPairs": "active",
+
+        // 字体设置
+        "editor.fontSize": 14,
+        "editor.fontFamily": "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+        "editor.fontLigatures": true,
+
+        // 行高设置
+        "editor.lineHeight": 22,
+        "editor.letterSpacing": 0.5,
+
+        // C/C++特定设置
+        "C_Cpp.enhancedColorization": "Enabled",
+        "C_Cpp.intelliSenseEngine": "default",
+
 }
