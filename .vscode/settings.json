@@ -149,5 +149,6 @@
         // C/C++特定设置
         "C_Cpp.enhancedColorization": "Enabled",
         "C_Cpp.intelliSenseEngine": "default",
+        "cortex-debug.variableUseNaturalFormat": false,
 
 }
