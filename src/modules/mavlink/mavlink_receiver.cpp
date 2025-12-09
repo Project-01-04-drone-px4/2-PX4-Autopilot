@@ -123,9 +123,9 @@ MavlinkReceiver::MavlinkReceiver(Mavlink &parent) :
 	_parameters_manager(parent),
 	_mavlink_timesync(parent)
 {
-// #ifdef BOARD_ENABLE_DEBUG_PIN
+#ifdef BOARD_ENABLE_DEBUG_PIN
 	debug_pin_init();
-// #endif
+#endif
 }
 
 void
@@ -3243,13 +3243,21 @@ MavlinkReceiver::run()
 			if (_mavlink.get_protocol() != Protocol::UDP || _mavlink.get_client_source_initialized()) {
 #endif // MAVLINK_UDP
 
-// #ifdef BOARD_ENABLE_DEBUG_PIN
-				// Set debug pin low when packet parsing is complete
-				debug_pin_set_high(DEBUG_PIN_LINE2);
-// #endif
+#ifdef BOARD_ENABLE_DEBUG_PIN
+				static bool debug_pin_initialized = false;
+				if (!debug_pin_initialized) {
+					debug_pin_init();
+					debug_pin_initialized = true;
+				}
+#endif
+
 				/* if read failed, this loop won't execute */
 				for (ssize_t i = 0; i < nread; i++) {
 					if (mavlink_parse_char(_mavlink.get_channel(), buf[i], &msg, &_status)) {
+#ifdef BOARD_ENABLE_DEBUG_PIN
+						// Set debug pin high when a complete packet is received
+						debug_pin_set_high(DEBUG_PIN_LINE0);
+#endif
 
 						// If we receive a complete MAVLink 2 packet, also switch the outgoing protocol version
 						if (!(_mavlink.get_status()->flags & MAVLINK_STATUS_FLAG_IN_MAVLINK1)
@@ -3274,12 +3282,13 @@ MavlinkReceiver::run()
 						if (_message_statistics_enabled) {
 							update_message_statistics(msg);
 						}
+
+#ifdef BOARD_ENABLE_DEBUG_PIN
+						// Set debug pin low after processing the packet
+						debug_pin_set_low(DEBUG_PIN_LINE0);
+#endif
 					}
 				}
-// #ifdef BOARD_ENABLE_DEBUG_PIN
-				// Set debug pin low if parsing failed (no complete packet)
-				debug_pin_set_low(DEBUG_PIN_LINE2);
-// #endif
 
 				/* count received bytes (nread will be -1 on read error) */
 				if (nread > 0) {

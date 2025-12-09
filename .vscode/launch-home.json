@@ -1,0 +1,25 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "jlink (micoair_h743) - Release",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "jlink",
+            "device": "STM32H743VI",
+            "interface": "swd",
+            "gdbPath": "/opt/gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gdb",
+            "executable": "${workspaceFolder}/build/micoair_h743_default/micoair_h743_default.elf",
+            "cwd": "${workspaceFolder}",
+            // "runToEntryPoint": "main",
+            "showDevDebugOutput": "raw",
+            "preLaunchCommands": [
+                "source ${workspaceFolder}/platforms/nuttx/Debug/PX4",
+                "source ${workspaceFolder}/platforms/nuttx/Debug/NuttX",
+                "source ${workspaceFolder}/platforms/nuttx/Debug/ARMv7M",
+                "set mem inaccessible-by-default off",
+                "set print pretty"
+            ]
+        }
+    ]
+}

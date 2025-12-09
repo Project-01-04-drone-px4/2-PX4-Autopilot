@@ -102,9 +102,10 @@
 
 
 /* PWM
+ * Reduced to 4 channels to free motor5-10 pins (PB1, PB0, PD12, PD13, PD14, PD15) for debug pins
  */
-#define DIRECT_PWM_OUTPUT_CHANNELS   10
-#define DIRECT_INPUT_TIMER_CHANNELS  10
+#define DIRECT_PWM_OUTPUT_CHANNELS   4
+#define DIRECT_INPUT_TIMER_CHANNELS  4
 
 #define BOARD_HAS_PWM  DIRECT_PWM_OUTPUT_CHANNELS
 

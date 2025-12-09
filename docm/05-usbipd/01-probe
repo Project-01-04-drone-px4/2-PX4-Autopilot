@@ -1,0 +1,13 @@
+一
+sudo modprobe usbip-core
+sudo modprobe usbip-host
+sudo modprobe vhci-hcd
+
+二
+sudo usbip attach -r 192.168.1.133 -b 5-2
+
+三
+sudo usbip port
+sudo usbip detach -p 0  # 0 是端口号，可通过 usbip port 查看
+
+

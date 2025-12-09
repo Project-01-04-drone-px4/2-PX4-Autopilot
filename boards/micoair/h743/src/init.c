@@ -211,6 +211,13 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 #ifdef BOARD_ENABLE_DEBUG_PIN
 	/* Initialize debug pins early in system startup */
 	debug_pin_init();
+
+	/* Test each debug pin: pull high, delay 100ms, then pull low */
+	for (uint8_t i = 0; i < DEBUG_PIN_MAX_LINES; i++) {
+		debug_pin_set_high(i);
+		up_mdelay(100);
+		debug_pin_set_low(i);
+	}
 #endif
 
 	return OK;
