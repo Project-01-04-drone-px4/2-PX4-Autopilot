@@ -45,3 +45,5 @@ uint8 mode
 uint8 MODE_UNKNOWN  = 0
 uint8 MODE_ENABLED  = 1
 uint8 MODE_DISABLED = 2
+
+float32 update_rate_hz		# Sensor update rate in Hz (0.0 if unknown or first reading)

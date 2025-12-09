@@ -989,6 +989,15 @@ MavlinkReceiver::handle_message_distance_sensor(mavlink_message_t *msg)
 	// signal quality is normalised between 0 and 100.
 	ds.signal_quality = dist_sensor.signal_quality == 0 ? -1 : 100 * (dist_sensor.signal_quality - 1) / 99;
 
+	// Calculate update rate in Hz
+	if (_last_distance_sensor_publish_time > 0) {
+		const float dt = (ds.timestamp - _last_distance_sensor_publish_time) * 1e-6f; // Convert microseconds to seconds
+		ds.update_rate_hz = (dt > 0.0f) ? (1.0f / dt) : 0.0f;
+	} else {
+		ds.update_rate_hz = 0.0f; // First reading, unknown rate
+	}
+	_last_distance_sensor_publish_time = ds.timestamp;
+
 	_distance_sensor_pub.publish(ds);
 }
 

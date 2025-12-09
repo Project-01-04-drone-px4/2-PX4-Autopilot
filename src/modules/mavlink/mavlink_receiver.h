@@ -338,6 +338,7 @@ private:
 
 	// ORB publications (multi)
 	uORB::PublicationMulti<distance_sensor_s>		_distance_sensor_pub{ORB_ID(distance_sensor)};
+	hrt_abstime _last_distance_sensor_publish_time{0};	// Last publish timestamp for update rate calculation
 	uORB::PublicationMulti<gps_inject_data_s>		_gps_inject_data_pub{ORB_ID(gps_inject_data)};
 	uORB::PublicationMulti<input_rc_s>			_rc_pub{ORB_ID(input_rc)};
 	uORB::PublicationMulti<manual_control_setpoint_s>	_manual_control_input_pub{ORB_ID(manual_control_input)};
