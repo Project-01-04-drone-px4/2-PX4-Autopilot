@@ -144,6 +144,11 @@ px4_add_module(
 	UNITY_BUILD
 	)
 
+# Add board-specific include directory for debug_pin.h and other board headers
+if(EXISTS "${PX4_BOARD_DIR}/src")
+	target_include_directories(modules__mavlink PRIVATE "${PX4_BOARD_DIR}/src")
+endif()
+
 if(PX4_TESTING)
 	add_subdirectory(mavlink_tests)
 endif()

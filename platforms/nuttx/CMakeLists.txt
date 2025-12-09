@@ -612,7 +612,12 @@ if(NOT NUTTX_DIR MATCHES "external")
 	endif()
 
 	if(DEBUG_DEVICE)
-		configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Debug/launch.json.in ${PX4_SOURCE_DIR}/.vscode/launch.json @ONLY)
+		# Only generate launch.json if it doesn't exist to avoid overwriting user customizations
+		if(NOT EXISTS ${PX4_SOURCE_DIR}/.vscode/launch.json)
+			configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Debug/launch.json.in ${PX4_SOURCE_DIR}/.vscode/launch.json @ONLY)
+		else()
+			message(STATUS "launch.json already exists, skipping auto-generation to preserve user customizations")
+		endif()
 	endif()
 endif()
 

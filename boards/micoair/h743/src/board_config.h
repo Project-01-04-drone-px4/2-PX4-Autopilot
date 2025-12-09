@@ -147,6 +147,11 @@
 
 #define BOARD_NUM_IO_TIMERS 4
 
+/* Debug Pin Configuration
+ * Enable debug pins using motor5-10 pins (PB1, PB0, PD12, PD13, PD14, PD15)
+ * Define BOARD_ENABLE_DEBUG_PIN in the board's default.px4board to enable
+ */
+#define BOARD_ENABLE_DEBUG_PIN 1
 
 __BEGIN_DECLS
 

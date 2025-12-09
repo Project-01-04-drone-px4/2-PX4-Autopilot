@@ -43,6 +43,10 @@
 
 #include "board_config.h"
 
+#ifdef BOARD_ENABLE_DEBUG_PIN
+#include "debug_pin.h"
+#endif
+
 #include <syslog.h>
 
 #include <nuttx/config.h>
@@ -203,6 +207,11 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 
 	/* Configure the HW based on the manifest */
 	px4_platform_configure();
+
+#ifdef BOARD_ENABLE_DEBUG_PIN
+	/* Initialize debug pins early in system startup */
+	debug_pin_init();
+#endif
 
 	return OK;
 }
