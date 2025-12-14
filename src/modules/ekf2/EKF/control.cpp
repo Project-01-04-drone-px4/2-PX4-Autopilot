@@ -108,7 +108,19 @@ void Ekf::controlFusionModes(const imuSample &imu_delayed)
 #endif // CONFIG_EKF2_MAGNETOMETER
 
 #if defined(CONFIG_EKF2_OPTICAL_FLOW)
+	static uint32_t of_control_counter = 0;
+	of_control_counter++;
+	if (of_control_counter <= 20 || of_control_counter % 100 == 0) {
+		printf("OF_TRACE[controlFusionModes] #%lu: calling controlOpticalFlowFusion() at %llu us\n",
+			(unsigned long)of_control_counter, (unsigned long long)imu_delayed.time_us);
+		fflush(stdout);
+	}
 	controlOpticalFlowFusion(imu_delayed);
+	if (of_control_counter <= 20 || of_control_counter % 100 == 0) {
+		printf("OF_TRACE[controlFusionModes] #%lu: controlOpticalFlowFusion() returned at %llu us\n",
+			(unsigned long)of_control_counter, (unsigned long long)imu_delayed.time_us);
+		fflush(stdout);
+	}
 #endif // CONFIG_EKF2_OPTICAL_FLOW
 
 #if defined(CONFIG_EKF2_GNSS)

@@ -42,6 +42,7 @@
 #include "ekf.h"
 
 #include <mathlib/mathlib.h>
+#include <cstdio>
 
 bool Ekf::init(uint64_t timestamp)
 {
@@ -136,6 +137,13 @@ void Ekf::reset()
 
 bool Ekf::update()
 {
+	static uint32_t update_entry_counter = 0;
+	update_entry_counter++;
+	if (update_entry_counter <= 20 || update_entry_counter % 100 == 0) {
+		printf("OF_TRACE[Ekf::update] #%lu: ENTER\n", (unsigned long)update_entry_counter);
+		fflush(stdout);
+	}
+
 	// Only run the filter if IMU data in the buffer has been updated
 	if (_imu_updated) {
 		_imu_updated = false;
@@ -173,6 +181,11 @@ bool Ekf::update()
 			_filter_initialised = initialiseFilter();
 
 			if (!_filter_initialised) {
+				static uint32_t init_fail_counter = 0;
+				if (++init_fail_counter % 100 == 0) {
+					printf("OF_TRACE[Ekf::update] RETURN FALSE: filter not initialised\n");
+					fflush(stdout);
+				}
 				return false;
 			}
 		}
@@ -184,14 +197,35 @@ bool Ekf::update()
 		predictState(imu_sample_delayed);
 
 		// control fusion of observation data
+		static uint32_t fusion_modes_counter = 0;
+		fusion_modes_counter++;
+		if (fusion_modes_counter <= 20 || fusion_modes_counter % 100 == 0) {
+			printf("OF_TRACE[Ekf::update] #%lu: calling controlFusionModes() at %llu us\n",
+				(unsigned long)fusion_modes_counter, (unsigned long long)imu_sample_delayed.time_us);
+			fflush(stdout);
+		}
 		controlFusionModes(imu_sample_delayed);
+		if (fusion_modes_counter <= 20 || fusion_modes_counter % 100 == 0) {
+			printf("OF_TRACE[Ekf::update] #%lu: controlFusionModes() returned at %llu us\n",
+				(unsigned long)fusion_modes_counter, (unsigned long long)imu_sample_delayed.time_us);
+			fflush(stdout);
+		}
 
 		_output_predictor.correctOutputStates(imu_sample_delayed.time_us, _state.quat_nominal, _state.vel, _gpos,
 						      _state.gyro_bias, _state.accel_bias);
 
+		if (update_entry_counter <= 20 || update_entry_counter % 100 == 0) {
+			printf("OF_TRACE[Ekf::update] #%lu: RETURN TRUE\n", (unsigned long)update_entry_counter);
+			fflush(stdout);
+		}
 		return true;
 	}
 
+	static uint32_t no_imu_update_counter = 0;
+	if (++no_imu_update_counter % 1000 == 0) {
+		printf("OF_TRACE[Ekf::update] RETURN FALSE: _imu_updated=false\n");
+		fflush(stdout);
+	}
 	return false;
 }
 

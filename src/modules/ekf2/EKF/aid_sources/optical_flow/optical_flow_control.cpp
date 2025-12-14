@@ -39,18 +39,63 @@
 #include "ekf.h"
 
 #include <ekf_derivation/generated/compute_flow_xy_innov_var_and_hx.h>
+#include <ekf_derivation/generated/compute_hagl_innov_var.h>
+#include <cstdio>
 
 void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 {
+	static uint32_t func_call_counter = 0;
+	func_call_counter++;
+
+	// 每次都打印前20次调用，之后每100次打印一次，确认函数被调用
+	if (func_call_counter <= 20 || func_call_counter % 100 == 0) {
+		printf("OF_TRACE[controlOpticalFlowFusion] #%lu: ENTER at %llu us, opt_flow=%d\n",
+			(unsigned long)func_call_counter, (unsigned long long)imu_delayed.time_us,
+			_control_status.flags.opt_flow);
+		fflush(stdout);
+	}
+
 	if (!_flow_buffer || (_params.ekf2_of_ctrl != 1)) {
+		static uint32_t debug_counter = 0;
+		debug_counter++;
+		if (debug_counter <= 20 || debug_counter % 100 == 0) {
+			const uint64_t ts = imu_delayed.time_us;
+			if (!_flow_buffer) {
+				printf("OF_DEBUG[%llu] #%lu: _flow_buffer is NULL, RETURN\n",
+					(unsigned long long)ts, (unsigned long)debug_counter);
+				fflush(stdout);
+			}
+			if (_params.ekf2_of_ctrl != 1) {
+				printf("OF_DEBUG[%llu] #%lu: ekf2_of_ctrl=%ld (need 1), RETURN\n",
+					(unsigned long long)ts, (unsigned long)debug_counter, (long)_params.ekf2_of_ctrl);
+				fflush(stdout);
+			}
+		}
 		stopFlowFusion();
 		return;
+	}
+
+	static uint32_t flow_data_counter = 0;
+	flow_data_counter++;
+	if (flow_data_counter <= 20 || flow_data_counter % 100 == 0) {
+		printf("OF_TRACE[controlOpticalFlowFusion] #%lu: passed initial checks, checking flow buffer at %llu us\n",
+			(unsigned long)flow_data_counter, (unsigned long long)imu_delayed.time_us);
+		fflush(stdout);
 	}
 
 	VectorState H;
 
 	// New optical flow data is available and is ready to be fused when the midpoint of the sample falls behind the fusion time horizon
-	if (_flow_buffer->pop_first_older_than(imu_delayed.time_us, &_flow_sample_delayed)) {
+	static uint32_t buffer_check_counter = 0;
+	buffer_check_counter++;
+	bool has_flow_data = _flow_buffer->pop_first_older_than(imu_delayed.time_us, &_flow_sample_delayed);
+	if (buffer_check_counter <= 20 || buffer_check_counter % 100 == 0) {
+		printf("OF_TRACE[controlOpticalFlowFusion] #%lu: flow_buffer->pop_first_older_than() = %d at %llu us\n",
+			(unsigned long)buffer_check_counter, has_flow_data, (unsigned long long)imu_delayed.time_us);
+		fflush(stdout);
+	}
+
+	if (has_flow_data) {
 
 		// flow gyro has opposite sign convention
 		_ref_body_rate = -(imu_delayed.delta_ang / imu_delayed.delta_ang_dt - getGyroBias());
@@ -158,6 +203,111 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 				&& (isTerrainEstimateValid() || isHorizontalAidingActive())
 				&& isTimedOut(_aid_src_optical_flow.time_last_fuse, (uint64_t)2e6); // Prevent rapid switching
 
+		// DEBUG: 打印启动条件详情（仅在 opt_flow 为 false 时打印，避免刷屏）
+		if (!_control_status.flags.opt_flow) {
+			static uint32_t debug_print_counter = 0;
+			if (++debug_print_counter % 20 == 0) { // 每20次打印一次（降低频率限制以便更快看到）
+				const float hagl = getHagl();
+				const bool terrain_valid = isTerrainEstimateValid();
+				const bool horizontal_aiding = isHorizontalAidingActive();
+				const uint64_t time_since_last_fuse = (flow_sample.time_us - _aid_src_optical_flow.time_last_fuse) / 1000; // ms
+				const bool timeout_ok = isTimedOut(_aid_src_optical_flow.time_last_fuse, (uint64_t)2e6);
+
+				printf("OF_DEBUG: Starting conditions check:\n");
+				fflush(stdout);
+				printf("  opt_flow=false, quality=%d (min_air=%ld min_gnd=%ld in_air=%d)\n",
+					flow_sample.quality, (long)_params.ekf2_of_qmin, (long)_params.ekf2_of_qmin_gnd, _control_status.flags.in_air);
+				fflush(stdout);
+				printf("  continuing_conditions: of_ctrl=%ld, tilt_align=%d, within_dist=%d (hagl=%.2f min=%.2f max=%.2f)\n",
+					(long)_params.ekf2_of_ctrl, _control_status.flags.tilt_align, is_within_sensor_dist,
+					(double)hagl, (double)_flow_min_distance, (double)_flow_max_distance);
+				fflush(stdout);
+				printf("  is_quality_good=%d, is_magnitude_good=%d (flow_rate_norm=%.3f max=%.3f)\n",
+					is_quality_good, is_magnitude_good,
+					(double)flow_sample.flow_rate.norm(), (double)_flow_max_rate);
+				fflush(stdout);
+				printf("  is_tilt_good=%d, flow_counter=%lu (>10 needed)\n",
+					is_tilt_good, (unsigned long)_flow_counter);
+				fflush(stdout);
+				printf("  terrain_valid=%d, horizontal_aiding=%d, timeout_ok=%d (dt=%llu ms)\n",
+					terrain_valid, horizontal_aiding, timeout_ok, time_since_last_fuse);
+				fflush(stdout);
+				printf("  continuing_conditions_passing=%d, starting_conditions_passing=%d\n",
+					continuing_conditions_passing, starting_conditions_passing);
+				fflush(stdout);
+
+				// 详细排查 terrain_valid 失败原因
+#if defined(CONFIG_EKF2_RANGE_FINDER)
+				const bool rng_terrain_flag = _control_status.flags.rng_terrain;
+				const bool rng_hgt_flag = _control_status.flags.rng_hgt;
+				const uint64_t rng_time_since_fuse = (_time_delayed_us - _aid_src_rng_hgt.time_last_fuse) / 1000; // ms
+				const bool rng_recent = isRecent(_aid_src_rng_hgt.time_last_fuse, _params.hgt_fusion_timeout_max);
+				const bool valid_rng_terrain = rng_terrain_flag && rng_recent;
+				const uint64_t terrain_time_since_fuse = (_time_delayed_us - _time_last_terrain_fuse) / 1000; // ms
+				float hagl_var = INFINITY;
+				if (_time_last_terrain_fuse != 0) {
+					sym::ComputeHaglInnovVar(P, 0.f, &hagl_var);
+				}
+				const bool positive_hagl_var = hagl_var > 0.f;
+				const bool small_relative_hagl_var = positive_hagl_var && (hagl_var < sq(fmaxf(0.1f * hagl, 0.5f)));
+
+				printf("  TERRAIN_DEBUG: rng_terrain=%d, rng_hgt=%d, rng_time_since_fuse=%llu ms, rng_recent=%d, valid_rng_terrain=%d\n",
+					rng_terrain_flag, rng_hgt_flag, rng_time_since_fuse, rng_recent, valid_rng_terrain);
+				fflush(stdout);
+				printf("  TERRAIN_DEBUG: terrain_time_since_fuse=%llu ms, hagl_var=%.6f, positive_hagl_var=%d, small_relative_hagl_var=%d\n",
+					terrain_time_since_fuse, (double)hagl_var, positive_hagl_var, small_relative_hagl_var);
+				fflush(stdout);
+#endif // CONFIG_EKF2_RANGE_FINDER
+
+				// 明确列出失败的条件
+				if (!starting_conditions_passing) {
+					printf("OF_DEBUG: Starting conditions FAILED:\n");
+					fflush(stdout);
+					if (!continuing_conditions_passing) {
+						printf("  - continuing_conditions_passing failed\n");
+						fflush(stdout);
+						if (_params.ekf2_of_ctrl != 1) {
+							printf("    * ekf2_of_ctrl != 1\n");
+							fflush(stdout);
+						}
+						if (!_control_status.flags.tilt_align) {
+							printf("    * tilt_align = false\n");
+							fflush(stdout);
+						}
+						if (!is_within_sensor_dist) {
+							printf("    * not within sensor distance\n");
+							fflush(stdout);
+						}
+					}
+					if (!is_quality_good) {
+						printf("  - is_quality_good failed (quality=%d < min=%ld)\n",
+							flow_sample.quality, (long)min_quality);
+						fflush(stdout);
+					}
+					if (!is_magnitude_good) {
+						printf("  - is_magnitude_good failed\n");
+						fflush(stdout);
+					}
+					if (!is_tilt_good) {
+						printf("  - is_tilt_good failed\n");
+						fflush(stdout);
+					}
+					if (_flow_counter <= 10) {
+						printf("  - flow_counter=%lu (need >10)\n", (unsigned long)_flow_counter);
+						fflush(stdout);
+					}
+					if (!terrain_valid && !horizontal_aiding) {
+						printf("  - terrain invalid and no horizontal aiding\n");
+						fflush(stdout);
+					}
+					if (!timeout_ok) {
+						printf("  - timeout check failed (dt=%llu ms, need >2000ms)\n", time_since_last_fuse);
+						fflush(stdout);
+					}
+				}
+			}
+		}
+
 		// If the height is relative to the ground, terrain height cannot be observed.
 		_control_status.flags.opt_flow_terrain = _control_status.flags.opt_flow && !(_height_sensor_ref == HeightSensor::RANGE);
 
@@ -183,6 +333,15 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 				}
 
 			} else {
+				static uint32_t debug_stop_counter = 0;
+				debug_stop_counter++;
+				if (debug_stop_counter <= 20 || debug_stop_counter % 100 == 0) {
+					printf("OF_DEBUG: Stopping fusion - continuing_conditions failed:\n");
+					fflush(stdout);
+					printf("  of_ctrl=%ld, tilt_align=%d, within_dist=%d (hagl=%.2f)\n",
+						(long)_params.ekf2_of_ctrl, _control_status.flags.tilt_align, is_within_sensor_dist, (double)getHagl());
+					fflush(stdout);
+				}
 				stopFlowFusion();
 			}
 
@@ -219,8 +378,31 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 			}
 		}
 
-	} else if (_control_status.flags.opt_flow && isTimedOut(_flow_sample_delayed.time_us, _params.reset_timeout_max)) {
-		stopFlowFusion();
+	} else {
+		// 没有新的光流数据
+		static uint32_t debug_no_data_counter = 0;
+		debug_no_data_counter++;
+		if (debug_no_data_counter <= 20 || (debug_no_data_counter % 100 == 0 && !_control_status.flags.opt_flow)) {
+			printf("OF_DEBUG[%llu] #%lu: No new flow data in buffer, opt_flow=%d\n",
+				(unsigned long long)imu_delayed.time_us, (unsigned long)debug_no_data_counter,
+				_control_status.flags.opt_flow);
+			fflush(stdout);
+		}
+		if (_control_status.flags.opt_flow && isTimedOut(_flow_sample_delayed.time_us, _params.reset_timeout_max)) {
+			printf("OF_DEBUG[%llu]: Flow data timeout, stopping fusion\n",
+				(unsigned long long)imu_delayed.time_us);
+			fflush(stdout);
+			stopFlowFusion();
+		}
+	}
+
+	static uint32_t func_exit_counter = 0;
+	func_exit_counter++;
+	if (func_exit_counter <= 20 || func_exit_counter % 100 == 0) {
+		printf("OF_TRACE[controlOpticalFlowFusion] #%lu: EXIT at %llu us, opt_flow=%d\n",
+			(unsigned long)func_exit_counter, (unsigned long long)imu_delayed.time_us,
+			_control_status.flags.opt_flow);
+		fflush(stdout);
 	}
 }
 

@@ -801,7 +801,22 @@ void EKF2::Run()
 		// run the EKF update and output
 		const hrt_abstime ekf_update_start = hrt_absolute_time();
 
+		static uint32_t ekf_update_counter = 0;
+		ekf_update_counter++;
+		if (ekf_update_counter <= 20 || ekf_update_counter % 100 == 0) {
+			const hrt_abstime ts = hrt_absolute_time();
+			PX4_WARN("OF_TRACE[EKF2::Run:%lu] #%lu: calling _ekf.update() at %llu us",
+				(unsigned long)_instance, (unsigned long)ekf_update_counter, ts);
+		}
+
 		if (_ekf.update()) {
+			static uint32_t update_success_counter = 0;
+			update_success_counter++;
+			if (update_success_counter <= 20 || update_success_counter % 100 == 0) {
+				const hrt_abstime ts = hrt_absolute_time();
+				PX4_WARN("OF_TRACE[EKF2::Run:%lu] #%lu: _ekf.update() returned true at %llu us",
+					(unsigned long)_instance, (unsigned long)update_success_counter, ts);
+			}
 			perf_set_elapsed(_ekf_update_perf, hrt_elapsed_time(&ekf_update_start));
 
 			PublishLocalPosition(now);

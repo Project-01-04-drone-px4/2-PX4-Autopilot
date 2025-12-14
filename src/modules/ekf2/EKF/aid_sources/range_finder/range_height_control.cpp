@@ -205,6 +205,12 @@ void Ekf::controlRangeHaglFusion(const imuSample &imu_sample)
 					_height_sensor_ref = HeightSensor::UNKNOWN;
 				}
 
+				// If rng_hgt is active but rng_terrain is not, enable terrain fusion as well
+				// This allows terrain_valid to become true when using range finder for height
+				if (_control_status.flags.rng_hgt && !_control_status.flags.rng_terrain) {
+					_control_status.flags.rng_terrain = true;
+				}
+
 				if (_range_sensor.isDataHealthy()
 				    && _control_status.flags.rng_kin_consistent
 				   ) {
