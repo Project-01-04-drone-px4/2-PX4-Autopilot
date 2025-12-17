@@ -85,6 +85,7 @@
 #include <uORB/topics/mavlink_tunnel.h>
 #include <uORB/topics/obstacle_distance.h>
 #include <uORB/topics/offboard_control_mode.h>
+#include <uORB/topics/offboard_setpoint_raw.h>
 #include <uORB/topics/onboard_computer_status.h>
 #include <uORB/topics/open_drone_id_operator_id.h>
 #include <uORB/topics/open_drone_id_self_id.h>
@@ -312,6 +313,7 @@ private:
 	uORB::Publication<mavlink_tunnel_s>			_esc_serial_passthru_pub{ORB_ID(esc_serial_passthru)};
 	uORB::Publication<obstacle_distance_s>			_obstacle_distance_pub{ORB_ID(obstacle_distance)};
 	uORB::Publication<offboard_control_mode_s>		_offboard_control_mode_pub{ORB_ID(offboard_control_mode)};
+	uORB::Publication<offboard_setpoint_raw_s>		_offboard_setpoint_raw_pub{ORB_ID(offboard_setpoint_raw)};
 	uORB::Publication<onboard_computer_status_s>		_onboard_computer_status_pub{ORB_ID(onboard_computer_status)};
 	uORB::Publication<velocity_limits_s>			_velocity_limits_pub{ORB_ID(velocity_limits)};
 	uORB::Publication<open_drone_id_operator_id_s>		_open_drone_id_operator_id_pub{ORB_ID(open_drone_id_operator_id)};
@@ -409,7 +411,8 @@ private:
 		(ParamFloat<px4::params::BAT_LOW_THR>)      _param_bat_low_thr,
 		(ParamInt<px4::params::BAT1_N_CELLS>)       _param_bat_cells_count,
 		(ParamFloat<px4::params::BAT1_V_CHARGED>)   _param_bat_v_charged,
-		(ParamFloat<px4::params::BAT1_V_EMPTY>)     _param_bat_v_empty
+		(ParamFloat<px4::params::BAT1_V_EMPTY>)     _param_bat_v_empty,
+		(ParamBool<px4::params::MAV_SP_RAW_LOG>)    _param_mav_sp_raw_log
 	);
 
 	// Disallow copy construction and move assignment.

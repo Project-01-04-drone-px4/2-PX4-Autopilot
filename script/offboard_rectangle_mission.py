@@ -56,6 +56,9 @@ class OffboardController:
         self.mode = None
         self.current_setpoint = {'x': 0.0, 'y': 0.0, 'z': 0.0, 'yaw': 0.0}
         self.offboard_active = False
+        self.last_mode_check_time = 0
+        self.mode_check_interval = 0.5  # Check mode every 0.5 seconds instead of every loop
+        self.last_heartbeat_time = time.time()
 
     def wait_for_position(self):
         """Wait for local position estimate"""
@@ -83,6 +86,7 @@ class OffboardController:
         """Get current vehicle state"""
         msg = self.master.recv_match(type='HEARTBEAT', blocking=False)
         if msg:
+            self.last_heartbeat_time = time.time()
             self.armed = bool(msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
             # Decode PX4 custom mode
             # PX4 custom_mode is a 32-bit integer with structure:
@@ -117,10 +121,20 @@ class OffboardController:
                 self.mode = "STABILIZED"
             else:
                 self.mode = f"UNKNOWN(main={main_mode}, custom={msg.custom_mode})"
+        # If no heartbeat received, return last known state (don't update mode)
+        # This prevents false positives when heartbeat is temporarily delayed
         return self.armed, self.mode
 
     def send_position_setpoint(self, x, y, z, yaw=0.0):
-        """Send position setpoint (NED frame)"""
+        """Send position setpoint (NED frame)
+
+        Note: This function is called at 20Hz continuously during flight.
+        PX4 requires setpoints to be sent at >2Hz to maintain offboard mode.
+        This means offboard_setpoint_raw will contain many intermediate points
+        between waypoints, not just the 5 waypoint positions. This is expected
+        behavior - if you want to visualize only waypoints, filter the logged
+        data by waypoint arrival times or use a different visualization method.
+        """
         # Update current setpoint
         self.current_setpoint = {'x': x, 'y': y, 'z': z, 'yaw': yaw}
 
@@ -155,13 +169,21 @@ class OffboardController:
             yaw, 0  # yaw, yaw_rate
         )
 
-    def set_mode_offboard(self):
-        """Set vehicle to OFFBOARD mode"""
+    def set_mode_offboard(self, continue_setpoint=None):
+        """Set vehicle to OFFBOARD mode
+
+        Args:
+            continue_setpoint: If provided, continue sending this setpoint during mode switch
+                              to avoid losing offboard signal. Tuple (x, y, z) or None.
+        """
         print("Setting mode to OFFBOARD...")
 
         # Get current position for setpoint
-        pos = self.get_position()
-        current_x, current_y, current_z = pos['x'], pos['y'], pos['z']
+        if continue_setpoint is None:
+            pos = self.get_position()
+            current_x, current_y, current_z = pos['x'], pos['y'], pos['z']
+        else:
+            current_x, current_y, current_z = continue_setpoint
 
         # First, send setpoints for a few seconds to enable offboard mode
         print("Sending initial setpoints (required before entering offboard)...")
@@ -310,6 +332,9 @@ class OffboardController:
 
         start_time = time.time()
         distance = float('inf')
+        last_mode_check_time = 0
+        consecutive_mode_errors = 0
+        max_mode_errors = 3  # Require multiple consecutive errors before re-entering offboard
 
         while time.time() - start_time < timeout:
             # Send setpoint continuously (CRITICAL: must be >2Hz to maintain offboard mode)
@@ -327,16 +352,32 @@ class OffboardController:
                 print(f"Position reached! Distance: {distance:.2f}m")
                 return True
 
-            # Check if still in offboard mode
-            armed, mode = self.get_state()
-            if mode != "OFFBOARD" and self.offboard_active:
-                print(f"WARNING: Exited OFFBOARD mode! Current mode: {mode}")
-                print("This usually means setpoints stopped being received")
-                # Try to re-enter offboard
-                if self.set_mode_offboard():
-                    continue
+            # Check mode less frequently to avoid false positives
+            # Only check if heartbeat was received recently (within last 2 seconds)
+            current_time = time.time()
+            if (current_time - last_mode_check_time >= self.mode_check_interval and
+                current_time - self.last_heartbeat_time < 2.0):
+                armed, mode = self.get_state()
+                last_mode_check_time = current_time
+
+                # Only act if we have a valid mode and it's not OFFBOARD
+                if mode and mode != "OFFBOARD" and self.offboard_active:
+                    consecutive_mode_errors += 1
+                    if consecutive_mode_errors >= max_mode_errors:
+                        print(f"WARNING: Exited OFFBOARD mode! Current mode: {mode}")
+                        print("Attempting to re-enter offboard mode...")
+                        # Continue sending setpoint while re-entering offboard
+                        if self.set_mode_offboard(continue_setpoint=(x, y, z)):
+                            consecutive_mode_errors = 0
+                            continue
+                        else:
+                            return False
                 else:
-                    return False
+                    consecutive_mode_errors = 0
+            elif current_time - self.last_heartbeat_time >= 2.0:
+                # No heartbeat for 2 seconds - this is a real problem
+                print(f"WARNING: No heartbeat received for {current_time - self.last_heartbeat_time:.1f}s")
+                consecutive_mode_errors = 0  # Reset to avoid false positives
 
             time.sleep(1.0 / SETPOINT_RATE)
 
@@ -385,12 +426,16 @@ class OffboardController:
                 waypoint_y = initial_pos['y'] + dy
                 waypoint_z = initial_pos['z'] + dz
 
-                print(f"\nWaypoint {i}/{len(RECTANGLE_WAYPOINTS)-1}")
+                print(f"\nWaypoint {i}/{len(RECTANGLE_WAYPOINTS)-1}: ({waypoint_x:.2f}, {waypoint_y:.2f}, {waypoint_z:.2f})")
+                # Send waypoint setpoint once before starting to fly (for logging/visualization)
+                self.send_position_setpoint(waypoint_x, waypoint_y, waypoint_z)
+                time.sleep(0.1)  # Brief pause
+
                 if not self.fly_to_position(waypoint_x, waypoint_y, waypoint_z, timeout=30):
                     print(f"Failed to reach waypoint {i}")
                     # Continue anyway
 
-                # Brief hover at waypoint
+                # Brief hover at waypoint (send same setpoint multiple times for stability)
                 hover_start = time.time()
                 while time.time() - hover_start < 1.0:
                     self.send_position_setpoint(waypoint_x, waypoint_y, waypoint_z)

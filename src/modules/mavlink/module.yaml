@@ -238,3 +238,15 @@ parameters:
             type: boolean
             reboot_required: true
             default: false
+
+        MAV_SP_RAW_LOG:
+            description:
+                short: Enable logging of raw offboard setpoints
+                long: |
+                    If enabled, the raw offboard setpoint data received from MAVLink
+                    SET_POSITION_TARGET_LOCAL_NED messages will be logged to ulog at the
+                    original reception rate. This allows analysis of the exact setpoints
+                    sent to the vehicle in offboard mode.
+
+            type: boolean
+            default: false

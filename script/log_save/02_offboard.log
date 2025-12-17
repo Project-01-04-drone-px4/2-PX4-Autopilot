@@ -1,0 +1,322 @@
+➜  script git:(gf-std) ✗ python3 offboard_rectangle_mission.py
+============================================================
+PX4 Offboard Rectangle Mission
+============================================================
+Takeoff altitude: 1.5m
+Rectangle size: 2.0m x 2.0m
+============================================================
+Connecting to PX4 at udp:127.0.0.1:14540...
+Waiting for heartbeat...
+Heartbeat received! System: 1, Component: 0
+Waiting for local position estimate...
+Position received: x=0.01, y=0.01, z=-0.01
+Initial position: x=0.01, y=0.01, z=-0.01
+Setting mode to OFFBOARD...
+Sending initial setpoints (required before entering offboard)...
+Requesting OFFBOARD mode (custom_mode=393216, base_mode=29)...
+Waiting for OFFBOARD mode (continuing to send setpoints)...
+Successfully entered OFFBOARD mode!
+Arming vehicle...
+Vehicle armed!
+
+=== TAKEOFF ===
+
+Flying to: x=0.01m, y=0.01m, z=-1.50m
+WARNING: Exited OFFBOARD mode! Current mode: UNKNOWN(main=0, custom=0)
+Attempting to re-enter offboard mode...
+Setting mode to OFFBOARD...
+Sending initial setpoints (required before entering offboard)...
+Requesting OFFBOARD mode (custom_mode=393216, base_mode=29)...
+Waiting for OFFBOARD mode (continuing to send setpoints)...
+Successfully entered OFFBOARD mode!
+WARNING: No heartbeat received for 2.0s
+WARNING: No heartbeat received for 2.1s
+WARNING: No heartbeat received for 2.1s
+Position reached! Distance: 0.30m
+Hovering at takeoff altitude...
+
+=== RECTANGLE TRAJECTORY ===
+
+Waypoint 1/5: (2.01, 0.01, -1.51)
+
+Flying to: x=2.01m, y=0.01m, z=-1.51m
+WARNING: No heartbeat received for 4.3s
+WARNING: No heartbeat received for 4.4s
+WARNING: No heartbeat received for 4.4s
+WARNING: No heartbeat received for 4.5s
+WARNING: No heartbeat received for 4.5s
+WARNING: No heartbeat received for 4.6s
+WARNING: No heartbeat received for 4.6s
+WARNING: No heartbeat received for 4.7s
+WARNING: No heartbeat received for 4.7s
+WARNING: No heartbeat received for 4.8s
+WARNING: No heartbeat received for 4.8s
+WARNING: No heartbeat received for 4.9s
+WARNING: No heartbeat received for 5.0s
+WARNING: No heartbeat received for 5.0s
+WARNING: No heartbeat received for 5.1s
+WARNING: No heartbeat received for 5.1s
+WARNING: No heartbeat received for 5.2s
+WARNING: No heartbeat received for 5.2s
+WARNING: No heartbeat received for 5.3s
+WARNING: No heartbeat received for 5.3s
+WARNING: No heartbeat received for 5.4s
+WARNING: No heartbeat received for 5.5s
+WARNING: No heartbeat received for 5.5s
+WARNING: No heartbeat received for 5.6s
+WARNING: No heartbeat received for 5.6s
+WARNING: No heartbeat received for 5.7s
+WARNING: No heartbeat received for 5.7s
+WARNING: No heartbeat received for 5.8s
+WARNING: No heartbeat received for 5.8s
+WARNING: No heartbeat received for 5.9s
+WARNING: No heartbeat received for 6.0s
+WARNING: No heartbeat received for 6.0s
+WARNING: No heartbeat received for 6.1s
+WARNING: No heartbeat received for 6.1s
+WARNING: No heartbeat received for 6.2s
+WARNING: No heartbeat received for 6.2s
+WARNING: No heartbeat received for 6.3s
+WARNING: No heartbeat received for 6.3s
+WARNING: No heartbeat received for 6.4s
+WARNING: No heartbeat received for 6.4s
+WARNING: No heartbeat received for 6.5s
+WARNING: No heartbeat received for 6.5s
+WARNING: No heartbeat received for 6.6s
+WARNING: No heartbeat received for 6.6s
+WARNING: No heartbeat received for 6.7s
+WARNING: No heartbeat received for 6.8s
+WARNING: No heartbeat received for 6.8s
+WARNING: No heartbeat received for 6.9s
+Position reached! Distance: 0.26m
+
+Waypoint 2/5: (2.01, 2.01, -1.51)
+
+Flying to: x=2.01m, y=2.01m, z=-1.51m
+WARNING: No heartbeat received for 8.0s
+WARNING: No heartbeat received for 8.1s
+WARNING: No heartbeat received for 8.1s
+WARNING: No heartbeat received for 8.2s
+WARNING: No heartbeat received for 8.2s
+WARNING: No heartbeat received for 8.3s
+WARNING: No heartbeat received for 8.3s
+WARNING: No heartbeat received for 8.4s
+WARNING: No heartbeat received for 8.5s
+WARNING: No heartbeat received for 8.5s
+WARNING: No heartbeat received for 8.6s
+WARNING: No heartbeat received for 8.6s
+WARNING: No heartbeat received for 8.7s
+WARNING: No heartbeat received for 8.7s
+WARNING: No heartbeat received for 8.8s
+WARNING: No heartbeat received for 8.8s
+WARNING: No heartbeat received for 8.9s
+WARNING: No heartbeat received for 8.9s
+WARNING: No heartbeat received for 9.0s
+WARNING: No heartbeat received for 9.1s
+WARNING: No heartbeat received for 9.1s
+WARNING: No heartbeat received for 9.2s
+WARNING: No heartbeat received for 9.2s
+WARNING: No heartbeat received for 9.3s
+WARNING: No heartbeat received for 9.3s
+WARNING: No heartbeat received for 9.4s
+WARNING: No heartbeat received for 9.4s
+WARNING: No heartbeat received for 9.5s
+WARNING: No heartbeat received for 9.5s
+WARNING: No heartbeat received for 9.6s
+WARNING: No heartbeat received for 9.7s
+WARNING: No heartbeat received for 9.7s
+WARNING: No heartbeat received for 9.8s
+WARNING: No heartbeat received for 9.8s
+WARNING: No heartbeat received for 9.9s
+WARNING: No heartbeat received for 9.9s
+WARNING: No heartbeat received for 10.0s
+WARNING: No heartbeat received for 10.0s
+WARNING: No heartbeat received for 10.1s
+WARNING: No heartbeat received for 10.1s
+WARNING: No heartbeat received for 10.2s
+WARNING: No heartbeat received for 10.2s
+WARNING: No heartbeat received for 10.3s
+WARNING: No heartbeat received for 10.4s
+WARNING: No heartbeat received for 10.4s
+WARNING: No heartbeat received for 10.5s
+WARNING: No heartbeat received for 10.5s
+WARNING: No heartbeat received for 10.6s
+WARNING: No heartbeat received for 10.6s
+WARNING: No heartbeat received for 10.7s
+WARNING: No heartbeat received for 10.7s
+WARNING: No heartbeat received for 10.8s
+WARNING: No heartbeat received for 10.8s
+WARNING: No heartbeat received for 10.9s
+Position reached! Distance: 0.27m
+
+Waypoint 3/5: (0.01, 2.01, -1.51)
+
+Flying to: x=0.01m, y=2.01m, z=-1.51m
+WARNING: No heartbeat received for 12.1s
+WARNING: No heartbeat received for 12.1s
+WARNING: No heartbeat received for 12.2s
+WARNING: No heartbeat received for 12.2s
+WARNING: No heartbeat received for 12.3s
+WARNING: No heartbeat received for 12.3s
+WARNING: No heartbeat received for 12.4s
+WARNING: No heartbeat received for 12.4s
+WARNING: No heartbeat received for 12.5s
+WARNING: No heartbeat received for 12.5s
+WARNING: No heartbeat received for 12.6s
+WARNING: No heartbeat received for 12.7s
+WARNING: No heartbeat received for 12.7s
+WARNING: No heartbeat received for 12.8s
+WARNING: No heartbeat received for 12.8s
+WARNING: No heartbeat received for 12.9s
+WARNING: No heartbeat received for 12.9s
+WARNING: No heartbeat received for 13.0s
+WARNING: No heartbeat received for 13.0s
+WARNING: No heartbeat received for 13.1s
+WARNING: No heartbeat received for 13.1s
+WARNING: No heartbeat received for 13.2s
+WARNING: No heartbeat received for 13.3s
+WARNING: No heartbeat received for 13.3s
+WARNING: No heartbeat received for 13.4s
+WARNING: No heartbeat received for 13.4s
+WARNING: No heartbeat received for 13.5s
+WARNING: No heartbeat received for 13.5s
+WARNING: No heartbeat received for 13.6s
+WARNING: No heartbeat received for 13.6s
+WARNING: No heartbeat received for 13.7s
+WARNING: No heartbeat received for 13.8s
+WARNING: No heartbeat received for 13.8s
+WARNING: No heartbeat received for 13.9s
+WARNING: No heartbeat received for 13.9s
+WARNING: No heartbeat received for 14.0s
+WARNING: No heartbeat received for 14.0s
+WARNING: No heartbeat received for 14.1s
+WARNING: No heartbeat received for 14.1s
+WARNING: No heartbeat received for 14.2s
+WARNING: No heartbeat received for 14.2s
+WARNING: No heartbeat received for 14.3s
+WARNING: No heartbeat received for 14.4s
+WARNING: No heartbeat received for 14.4s
+WARNING: No heartbeat received for 14.5s
+WARNING: No heartbeat received for 14.5s
+WARNING: No heartbeat received for 14.6s
+WARNING: No heartbeat received for 14.6s
+WARNING: No heartbeat received for 14.7s
+WARNING: No heartbeat received for 14.7s
+Position reached! Distance: 0.25m
+
+Waypoint 4/5: (0.01, 0.01, -1.51)
+
+Flying to: x=0.01m, y=0.01m, z=-1.51m
+WARNING: No heartbeat received for 15.9s
+WARNING: No heartbeat received for 16.0s
+WARNING: No heartbeat received for 16.0s
+WARNING: No heartbeat received for 16.1s
+WARNING: No heartbeat received for 16.1s
+WARNING: No heartbeat received for 16.2s
+WARNING: No heartbeat received for 16.2s
+WARNING: No heartbeat received for 16.3s
+WARNING: No heartbeat received for 16.4s
+WARNING: No heartbeat received for 16.4s
+WARNING: No heartbeat received for 16.5s
+WARNING: No heartbeat received for 16.5s
+WARNING: No heartbeat received for 16.6s
+WARNING: No heartbeat received for 16.6s
+WARNING: No heartbeat received for 16.7s
+WARNING: No heartbeat received for 16.7s
+WARNING: No heartbeat received for 16.8s
+WARNING: No heartbeat received for 16.9s
+WARNING: No heartbeat received for 16.9s
+WARNING: No heartbeat received for 17.0s
+WARNING: No heartbeat received for 17.0s
+WARNING: No heartbeat received for 17.1s
+WARNING: No heartbeat received for 17.1s
+WARNING: No heartbeat received for 17.2s
+WARNING: No heartbeat received for 17.2s
+WARNING: No heartbeat received for 17.3s
+WARNING: No heartbeat received for 17.3s
+WARNING: No heartbeat received for 17.4s
+WARNING: No heartbeat received for 17.5s
+WARNING: No heartbeat received for 17.5s
+WARNING: No heartbeat received for 17.6s
+WARNING: No heartbeat received for 17.6s
+WARNING: No heartbeat received for 17.7s
+WARNING: No heartbeat received for 17.7s
+WARNING: No heartbeat received for 17.8s
+WARNING: No heartbeat received for 17.8s
+WARNING: No heartbeat received for 17.9s
+WARNING: No heartbeat received for 17.9s
+WARNING: No heartbeat received for 18.0s
+WARNING: No heartbeat received for 18.1s
+WARNING: No heartbeat received for 18.1s
+WARNING: No heartbeat received for 18.2s
+WARNING: No heartbeat received for 18.2s
+WARNING: No heartbeat received for 18.3s
+WARNING: No heartbeat received for 18.3s
+WARNING: No heartbeat received for 18.4s
+WARNING: No heartbeat received for 18.4s
+Position reached! Distance: 0.30m
+
+Waypoint 5/5: (0.01, 0.01, -0.01)
+
+Flying to: x=0.01m, y=0.01m, z=-0.01m
+WARNING: No heartbeat received for 19.6s
+WARNING: No heartbeat received for 19.7s
+WARNING: No heartbeat received for 19.7s
+WARNING: No heartbeat received for 19.8s
+WARNING: No heartbeat received for 19.8s
+WARNING: No heartbeat received for 19.9s
+WARNING: No heartbeat received for 19.9s
+WARNING: No heartbeat received for 20.0s
+WARNING: No heartbeat received for 20.0s
+WARNING: No heartbeat received for 20.1s
+WARNING: No heartbeat received for 20.1s
+WARNING: No heartbeat received for 20.2s
+WARNING: No heartbeat received for 20.3s
+WARNING: No heartbeat received for 20.3s
+WARNING: No heartbeat received for 20.4s
+WARNING: No heartbeat received for 20.4s
+WARNING: No heartbeat received for 20.5s
+WARNING: No heartbeat received for 20.5s
+WARNING: No heartbeat received for 20.6s
+WARNING: No heartbeat received for 20.6s
+WARNING: No heartbeat received for 20.7s
+WARNING: No heartbeat received for 20.8s
+WARNING: No heartbeat received for 20.8s
+WARNING: No heartbeat received for 20.9s
+WARNING: No heartbeat received for 20.9s
+WARNING: No heartbeat received for 21.0s
+WARNING: No heartbeat received for 21.0s
+WARNING: No heartbeat received for 21.1s
+WARNING: No heartbeat received for 21.1s
+WARNING: No heartbeat received for 21.2s
+WARNING: No heartbeat received for 21.2s
+WARNING: No heartbeat received for 21.3s
+WARNING: No heartbeat received for 21.4s
+WARNING: No heartbeat received for 21.4s
+WARNING: No heartbeat received for 21.5s
+WARNING: No heartbeat received for 21.5s
+WARNING: No heartbeat received for 21.6s
+WARNING: No heartbeat received for 21.6s
+WARNING: No heartbeat received for 21.7s
+WARNING: No heartbeat received for 21.7s
+WARNING: No heartbeat received for 21.8s
+WARNING: No heartbeat received for 21.9s
+WARNING: No heartbeat received for 21.9s
+WARNING: No heartbeat received for 22.0s
+WARNING: No heartbeat received for 22.0s
+WARNING: No heartbeat received for 22.1s
+WARNING: No heartbeat received for 22.1s
+Position reached! Distance: 0.30m
+
+=== LANDING ===
+
+Flying to: x=0.01m, y=0.01m, z=0.00m
+Position reached! Distance: 0.30m
+Waiting for landing...
+Landed!
+Disarming vehicle...
+
+=== MISSION COMPLETE ===
+
+Mission completed successfully!
+➜  script git:(gf-std) ✗

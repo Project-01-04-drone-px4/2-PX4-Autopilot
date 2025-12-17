@@ -153,6 +153,7 @@ set(msg_files
 	NormalizedUnsignedSetpoint.msg
 	ObstacleDistance.msg
 	OffboardControlMode.msg
+	OffboardSetpointRaw.msg
 	OnboardComputerStatus.msg
 	OpenDroneIdArmStatus.msg
 	OpenDroneIdOperatorId.msg

@@ -1173,6 +1173,28 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 			ocm.timestamp = hrt_absolute_time();
 			_offboard_control_mode_pub.publish(ocm);
 
+			// Log raw setpoint if parameter is enabled
+			if (_param_mav_sp_raw_log.get()) {
+				offboard_setpoint_raw_s raw_sp{};
+				raw_sp.timestamp = hrt_absolute_time();
+				raw_sp.coordinate_frame = target_local_ned.coordinate_frame;
+				raw_sp.type_mask = target_local_ned.type_mask;
+				raw_sp.x = target_local_ned.x;
+				raw_sp.y = target_local_ned.y;
+				raw_sp.z = target_local_ned.z;
+				raw_sp.vx = target_local_ned.vx;
+				raw_sp.vy = target_local_ned.vy;
+				raw_sp.vz = target_local_ned.vz;
+				raw_sp.afx = target_local_ned.afx;
+				raw_sp.afy = target_local_ned.afy;
+				raw_sp.afz = target_local_ned.afz;
+				raw_sp.yaw = target_local_ned.yaw;
+				raw_sp.yaw_rate = target_local_ned.yaw_rate;
+				raw_sp.target_system = target_local_ned.target_system;
+				raw_sp.target_component = target_local_ned.target_component;
+				_offboard_setpoint_raw_pub.publish(raw_sp);
+			}
+
 			vehicle_status_s vehicle_status{};
 			_vehicle_status_sub.copy(&vehicle_status);
 
