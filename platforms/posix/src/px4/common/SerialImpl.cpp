@@ -38,7 +38,12 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <poll.h>
+#include <sys/ioctl.h>
 #include <drivers/drv_hrt.h>
+
+#if defined(__PX4_CYGWIN) && !defined(FIONREAD)
+# define FIONREAD TIOCINQ
+#endif
 
 namespace device
 {
