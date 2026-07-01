@@ -40,6 +40,10 @@
 #pragma once
 
 #include <sys/ioctl.h>
+#if defined(__PX4_CYGWIN) && !defined(FIONREAD)
+# include <sys/termios.h>
+# define FIONREAD TIOCINQ
+#endif
 #include <px4_boardconfig.h>
 
 

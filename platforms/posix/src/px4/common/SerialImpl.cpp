@@ -38,7 +38,14 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <poll.h>
+#include <sys/ioctl.h>
 #include <drivers/drv_hrt.h>
+
+#ifdef __PX4_CYGWIN
+# define PX4_SERIAL_BYTES_AVAILABLE_IOCTL TIOCINQ
+#else
+# define PX4_SERIAL_BYTES_AVAILABLE_IOCTL FIONREAD
+#endif
 
 namespace device
 {
@@ -292,7 +299,7 @@ ssize_t SerialImpl::bytesAvailable()
 	}
 
 	ssize_t bytes_available = 0;
-	int ret = ioctl(_serial_fd, FIONREAD, &bytes_available);
+	int ret = ioctl(_serial_fd, PX4_SERIAL_BYTES_AVAILABLE_IOCTL, &bytes_available);
 
 	if (ret < 0) {
 		return -1;
