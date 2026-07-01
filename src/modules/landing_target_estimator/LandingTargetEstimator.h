@@ -123,6 +123,10 @@ private:
 		param_t offset_y;
 		param_t offset_z;
 		param_t sensor_yaw;
+		param_t z_fallback;
+		param_t sim_en;
+		param_t sim_x;
+		param_t sim_y;
 	} _paramHandle;
 
 	struct {
@@ -137,6 +141,10 @@ private:
 		float offset_y;
 		float offset_z;
 		enum Rotation sensor_yaw;
+		bool z_fallback;
+		bool sim_en;
+		float sim_x;
+		float sim_y;
 	} _params;
 
 	struct {
@@ -150,6 +158,7 @@ private:
 	uORB::Subscription _attitudeSub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription _vehicle_acceleration_sub{ORB_ID(vehicle_acceleration)};
 	uORB::Subscription _irlockReportSub{ORB_ID(irlock_report)};
+	uORB::Publication<irlock_report_s> _irlockReportSimPub{ORB_ID(irlock_report)};
 
 	vehicle_local_position_s	_vehicleLocalPosition{};
 	vehicle_attitude_s		_vehicleAttitude{};
@@ -173,6 +182,7 @@ private:
 	KalmanFilter _kalman_filter_y;
 	hrt_abstime _last_predict{0}; // timestamp of last filter prediction
 	hrt_abstime _last_update{0}; // timestamp of last filter update (used to check timeout)
+	hrt_abstime _last_sim_irlock{0}; // timestamp of last synthetic SITL observation
 	float _dist_z{1.0f};
 
 	void _check_params(const bool force);

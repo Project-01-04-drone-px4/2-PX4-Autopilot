@@ -29,3 +29,19 @@ param set-default PWM_MAIN_FUNC1 101
 param set-default PWM_MAIN_FUNC2 102
 param set-default PWM_MAIN_FUNC3 103
 param set-default PWM_MAIN_FUNC4 104
+
+# Enable a stationary landing target estimator for SITL learning/log analysis.
+param set-default VTE_EN 0
+param set-default LTEST_MODE 1
+param set-default LTEST_SENS_ROT 0
+param set-default LTEST_SIM_EN 1
+param set-default LTEST_SIM_X 0.0
+param set-default LTEST_SIM_Y 0.0
+param set-default LTEST_Z_FALLBACK 1
+param set-default PLD_HACC_RAD 0.1
+param set-default RTL_PLD_MD 2
+
+if param compare VTE_EN 0
+then
+	landing_target_estimator start
+fi

@@ -86,10 +86,11 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic("internal_combustion_engine_control", 10);
 	add_optional_topic("internal_combustion_engine_status", 10);
 	add_optional_topic("iridiumsbd_status", 1000);
-	add_optional_topic("irlock_report", 1000);
+	add_topic("irlock_report", 100);
 	add_optional_topic("landing_gear", 200);
 	add_optional_topic("landing_gear_wheel", 100);
-	add_optional_topic("landing_target_pose", 1000);
+	add_topic("landing_target_innovations", 100);
+	add_topic("landing_target_pose", 100);
 	add_optional_topic("launch_detection_status", 200);
 	add_topic("logger_status", 200);
 	add_optional_topic("magnetometer_bias_estimate", 200);

@@ -118,3 +118,33 @@ parameters:
       reboot_required: true
       unit: m
       decimal: 3
+    LTEST_Z_FALLBACK:
+      description:
+        short: Use local vertical position as landing target height fallback
+        long: |-
+          Allows the landing target estimator to use the negative local z position as distance to the ground when dist_bottom is not valid.
+          This is intended for SITL learning setups without a range finder, such as jMAVSim.
+      type: boolean
+      default: 0
+    LTEST_SIM_EN:
+      description:
+        short: Enable synthetic landing target observations
+        long: |-
+          Publishes synthetic IRLOCK-style landing target observations from local position and attitude.
+          This is intended for SITL learning and log analysis.
+      type: boolean
+      default: 0
+    LTEST_SIM_X:
+      description:
+        short: Synthetic landing target local x position
+      type: float
+      default: 0.0
+      unit: m
+      decimal: 2
+    LTEST_SIM_Y:
+      description:
+        short: Synthetic landing target local y position
+      type: float
+      default: 0.0
+      unit: m
+      decimal: 2

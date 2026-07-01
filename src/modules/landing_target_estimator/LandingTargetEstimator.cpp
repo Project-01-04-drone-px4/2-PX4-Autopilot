@@ -63,6 +63,10 @@ LandingTargetEstimator::LandingTargetEstimator()
 	_paramHandle.offset_x = param_find("LTEST_SENS_POS_X");
 	_paramHandle.offset_y = param_find("LTEST_SENS_POS_Y");
 	_paramHandle.offset_z = param_find("LTEST_SENS_POS_Z");
+	_paramHandle.z_fallback = param_find("LTEST_Z_FALLBACK");
+	_paramHandle.sim_en = param_find("LTEST_SIM_EN");
+	_paramHandle.sim_x = param_find("LTEST_SIM_X");
+	_paramHandle.sim_y = param_find("LTEST_SIM_Y");
 	_check_params(true);
 }
 
@@ -207,15 +211,65 @@ void LandingTargetEstimator::_check_params(const bool force)
 
 void LandingTargetEstimator::_update_topics()
 {
-	_vehicleLocalPosition_valid = _vehicleLocalPositionSub.update(&_vehicleLocalPosition);
-	_vehicleAttitude_valid = _attitudeSub.update(&_vehicleAttitude);
-	_vehicle_acceleration_valid = _vehicle_acceleration_sub.update(&_vehicle_acceleration);
+	if (_vehicleLocalPositionSub.update(&_vehicleLocalPosition)) {
+		_vehicleLocalPosition_valid = true;
+	}
+
+	if (_attitudeSub.update(&_vehicleAttitude)) {
+		_vehicleAttitude_valid = true;
+	}
+
+	if (_vehicle_acceleration_sub.update(&_vehicle_acceleration)) {
+		_vehicle_acceleration_valid = true;
+	}
 
 
-	if (_irlockReportSub.update(&_irlockReport)) { //
+	bool irlock_updated = _irlockReportSub.update(&_irlockReport);
+
+	if (irlock_updated && _params.sim_en && _irlockReport.timestamp == _last_sim_irlock) {
+		irlock_updated = false;
+	}
+
+	if (!irlock_updated && _params.sim_en && _vehicleLocalPosition_valid && _vehicleAttitude_valid
+	    && (hrt_absolute_time() - _last_sim_irlock > 50000)) {
+		const bool local_position_valid = _vehicleLocalPosition.xy_valid && _vehicleLocalPosition.z_valid
+						  && PX4_ISFINITE(_vehicleLocalPosition.x)
+						  && PX4_ISFINITE(_vehicleLocalPosition.y)
+						  && PX4_ISFINITE(_vehicleLocalPosition.z);
+
+		if (local_position_valid) {
+			matrix::Vector3f target_ned{_params.sim_x - _vehicleLocalPosition.x,
+						    _params.sim_y - _vehicleLocalPosition.y,
+						    -_vehicleLocalPosition.z};
+
+			matrix::Quaternion<float> q_att(&_vehicleAttitude.q[0]);
+			matrix::Dcm<float> r_att(q_att);
+			matrix::Vector3f target_body = r_att.transpose() * target_ned;
+
+			if (PX4_ISFINITE(target_body(0)) && PX4_ISFINITE(target_body(1))
+			    && PX4_ISFINITE(target_body(2)) && target_body(2) > 0.5f) {
+				_irlockReport.timestamp = hrt_absolute_time();
+				_irlockReport.signature = 0;
+				_irlockReport.pos_x = target_body(0) / target_body(2);
+				_irlockReport.pos_y = target_body(1) / target_body(2);
+				_irlockReport.size_x = 0.05f;
+				_irlockReport.size_y = 0.05f;
+
+				_last_sim_irlock = _irlockReport.timestamp;
+				_irlockReportSimPub.publish(_irlockReport);
+				irlock_updated = true;
+			}
+		}
+	}
+
+	if (irlock_updated) { //
 		_new_irlockReport = true;
 
-		if (!_vehicleAttitude_valid || !_vehicleLocalPosition_valid || !_vehicleLocalPosition.dist_bottom_valid) {
+		const bool can_use_local_z_fallback = _params.z_fallback && _vehicleLocalPosition.z_valid
+						      && PX4_ISFINITE(_vehicleLocalPosition.z) && (_vehicleLocalPosition.z < 0.f);
+
+		if (!_vehicleAttitude_valid || !_vehicleLocalPosition_valid
+		    || (!_vehicleLocalPosition.dist_bottom_valid && !can_use_local_z_fallback)) {
 			// don't have the data needed for an update
 			return;
 		}
@@ -243,7 +297,10 @@ void LandingTargetEstimator::_update_topics()
 			return;
 		}
 
-		_dist_z = _vehicleLocalPosition.dist_bottom - _params.offset_z;
+		const float height_above_ground = _vehicleLocalPosition.dist_bottom_valid ? _vehicleLocalPosition.dist_bottom :
+						  -_vehicleLocalPosition.z;
+
+		_dist_z = height_above_ground - _params.offset_z;
 
 		// scale the ray s.t. the z component has length of _uncertainty_scale
 		_target_position_report.timestamp = _irlockReport.timestamp;
@@ -280,6 +337,16 @@ void LandingTargetEstimator::_update_params()
 	param_get(_paramHandle.offset_x, &_params.offset_x);
 	param_get(_paramHandle.offset_y, &_params.offset_y);
 	param_get(_paramHandle.offset_z, &_params.offset_z);
+
+	int32_t z_fallback = 0;
+	param_get(_paramHandle.z_fallback, &z_fallback);
+	_params.z_fallback = z_fallback;
+
+	int32_t sim_en = 0;
+	param_get(_paramHandle.sim_en, &sim_en);
+	_params.sim_en = sim_en;
+	param_get(_paramHandle.sim_x, &_params.sim_x);
+	param_get(_paramHandle.sim_y, &_params.sim_y);
 }
 
 
