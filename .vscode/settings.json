@@ -125,6 +125,20 @@
                 "${workspaceFolder}/build": true
         },
         "search.showLineNumbers": true,
+        "terminal.integrated.defaultProfile.windows": "Cygwin64 Bash",
+        "terminal.integrated.profiles.windows": {
+                "Cygwin64 Bash": {
+                        "path": "C:\\cygwin64\\bin\\bash.exe",
+                        "args": [
+                                "--login",
+                                "-i"
+                        ],
+                        "env": {
+                                "CHERE_INVOKING": "1"
+                        },
+                        "icon": "terminal-bash"
+                }
+        },
         "terminal.integrated.scrollback": 15000,
         "yaml.schemas": {
                 "${workspaceFolder}/validation/module_schema.yaml": "${workspaceFolder}/src/modules/*/module.yaml"
