@@ -342,6 +342,55 @@ void LoggedTopics::add_estimator_replay_topics()
 	add_topic_multi("distance_sensor");
 }
 
+void LoggedTopics::add_vertical_ekf2_replay_topics()
+{
+#if CONSTRAINED_MEMORY
+	static constexpr uint8_t MAX_ESTIMATOR_INSTANCES = 1;
+#else
+	static constexpr uint8_t MAX_ESTIMATOR_INSTANCES = 6;
+#endif
+
+	// Focused log set for offline EKF2 vertical velocity (velD) replay and tuning.
+	add_topic("ekf2_timestamps");
+	add_topic("sensor_combined");
+	add_topic("sensor_selection");
+	add_topic_multi("vehicle_imu", 0, 4);
+
+	// Raw sensor side channels for comparing the selected EKF2 inputs.
+	add_topic_multi("sensor_accel", 20, 4);
+	add_topic_multi("sensor_gyro", 20, 4);
+	add_topic("vehicle_air_data");
+	add_topic_multi("sensor_baro", 20, 4);
+	add_topic_multi("distance_sensor", 0, 4);
+
+	// EKF2 system flags and selected fused output.
+	add_topic("vehicle_land_detected");
+	add_topic("vehicle_status");
+	add_topic("vehicle_attitude");
+	add_topic("vehicle_local_position");
+
+	// EKF2 states, biases, height aid sources, and innovations needed to inspect velD fusion.
+	add_topic("estimator_states");
+	add_topic("estimator_sensor_bias");
+	add_topic("estimator_status");
+	add_topic("estimator_status_flags");
+	add_topic("estimator_innovations");
+	add_topic("estimator_innovation_variances");
+	add_topic("estimator_innovation_test_ratios");
+	add_topic("estimator_baro_bias");
+	add_topic("estimator_rng_hgt_bias");
+	add_topic_multi("estimator_local_position", 0, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator_aid_src_baro_hgt", 0, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator_aid_src_rng_hgt", 0, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator_aid_src_gravity", 0, MAX_ESTIMATOR_INSTANCES);
+	add_topic_multi("estimator_aid_src_gnss_hgt", 100, MAX_ESTIMATOR_INSTANCES);
+
+	// Keep a light health trace to verify that the focused high-rate log did not drop data.
+	add_topic("logger_status", 1000);
+	add_topic("cpuload", 1000);
+	add_topic("parameter_update");
+}
+
 void LoggedTopics::add_thermal_calibration_topics()
 {
 	add_topic_multi("sensor_accel", 100, 3);
@@ -563,6 +612,10 @@ void LoggedTopics::initialize_configured_topics(SDLogProfileMask profile)
 
 	if (profile & SDLogProfileMask::ESTIMATOR_REPLAY) {
 		add_estimator_replay_topics();
+	}
+
+	if (profile & SDLogProfileMask::VERTICAL_EKF2_REPLAY) {
+		add_vertical_ekf2_replay_topics();
 	}
 
 	if (profile & SDLogProfileMask::THERMAL_CALIBRATION) {
