@@ -102,7 +102,7 @@
  *   PLL1_VCO = (8,000,000 / 1) * 120 = 960 MHz
  *
  *   PLL1P = PLL1_VCO/2  = 960 MHz / 2   = 480 MHz
- *   PLL1Q = PLL1_VCO/4  = 960 MHz / 4   = 240 MHz
+ *   PLL1Q = PLL1_VCO/6  = 960 MHz / 6   = 160 MHz
  *   PLL1R = PLL1_VCO/8  = 960 MHz / 8   = 120 MHz
  */
 
@@ -114,12 +114,12 @@
 #define STM32_PLLCFG_PLL1M       RCC_PLLCKSELR_DIVM1(1)
 #define STM32_PLLCFG_PLL1N       RCC_PLL1DIVR_N1(120)
 #define STM32_PLLCFG_PLL1P       RCC_PLL1DIVR_P1(2)
-#define STM32_PLLCFG_PLL1Q       RCC_PLL1DIVR_Q1(4)
+#define STM32_PLLCFG_PLL1Q       RCC_PLL1DIVR_Q1(6)
 #define STM32_PLLCFG_PLL1R       RCC_PLL1DIVR_R1(8)
 
 #define STM32_VCO1_FREQUENCY     ((STM32_HSE_FREQUENCY / 1) * 120)
 #define STM32_PLL1P_FREQUENCY    (STM32_VCO1_FREQUENCY / 2)
-#define STM32_PLL1Q_FREQUENCY    (STM32_VCO1_FREQUENCY / 4)
+#define STM32_PLL1Q_FREQUENCY    (STM32_VCO1_FREQUENCY / 6)
 #define STM32_PLL1R_FREQUENCY    (STM32_VCO1_FREQUENCY / 8)
 
 /* PLL2 */
@@ -232,7 +232,7 @@
 
 /* SPI123 clock source */
 
-#define STM32_RCC_D2CCIP1R_SPI123SRC RCC_D2CCIP1R_SPI123SEL_PLL2
+#define STM32_RCC_D2CCIP1R_SPI123SRC RCC_D2CCIP1R_SPI123SEL_PLL1
 
 /* SPI45 clock source */
 
@@ -280,21 +280,21 @@
 
 /* SDMMC definitions ********************************************************/
 
-/* Init 480kHz, freq = PLL1Q/(2*div)  div =  PLL1Q/(2*freq) */
+/* Init 400 kHz, freq = PLL1Q/(2*div), div = 160/(2*0.4) = 200. */
 
-#define STM32_SDMMC_INIT_CLKDIV     (300 << STM32_SDMMC_CLKCR_CLKDIV_SHIFT)
+#define STM32_SDMMC_INIT_CLKDIV     (200 << STM32_SDMMC_CLKCR_CLKDIV_SHIFT)
 
 /* 20 MHz Max for now - more reliable on some boards than 25 MHz
- * 20 MHz = PLL1Q/(2*div), div =  PLL1Q/(2*freq), div = 6 = 240 / 40
+ * 20 MHz = PLL1Q/(2*div), div = 160/40 = 4
  */
 
 #if defined(CONFIG_STM32H7_SDMMC_XDMA) || defined(CONFIG_STM32H7_SDMMC_IDMA)
-#  define STM32_SDMMC_MMCXFR_CLKDIV   (6 << STM32_SDMMC_CLKCR_CLKDIV_SHIFT)
+#  define STM32_SDMMC_MMCXFR_CLKDIV   (4 << STM32_SDMMC_CLKCR_CLKDIV_SHIFT)
 #else
 #  define STM32_SDMMC_MMCXFR_CLKDIV   (100 << STM32_SDMMC_CLKCR_CLKDIV_SHIFT)
 #endif
 #if defined(CONFIG_STM32H7_SDMMC_XDMA) || defined(CONFIG_STM32H7_SDMMC_IDMA)
-#  define STM32_SDMMC_SDXFR_CLKDIV    (6 << STM32_SDMMC_CLKCR_CLKDIV_SHIFT)
+#  define STM32_SDMMC_SDXFR_CLKDIV    (4 << STM32_SDMMC_CLKCR_CLKDIV_SHIFT)
 #else
 #  define STM32_SDMMC_SDXFR_CLKDIV    (100 << STM32_SDMMC_CLKCR_CLKDIV_SHIFT)
 #endif
@@ -391,13 +391,9 @@
 
 #define ADJ_SLEW_RATE(p) (((p) & ~GPIO_SPEED_MASK) | (GPIO_SPEED_2MHz))
 
-//#define GPIO_SPI1_MISO   GPIO_SPI1_MISO_1               /* PA6  */
-//#define GPIO_SPI1_MOSI   GPIO_SPI1_MOSI_1               /* PA7  */
-//#define GPIO_SPI1_SCK    ADJ_SLEW_RATE(GPIO_SPI1_SCK_1) /* PA5 */
-
-#define GPIO_SPI2_MISO   GPIO_SPI2_MISO_2               /* PC2  */
-#define GPIO_SPI2_MOSI   GPIO_SPI2_MOSI_3               /* PC3 */
-#define GPIO_SPI2_SCK    ADJ_SLEW_RATE(GPIO_SPI2_SCK_5) /* PD3  */
+#define GPIO_SPI1_MISO   (GPIO_SPI1_MISO_1 | GPIO_PULLUP) /* PA6, weak pull-up diagnoses an undriven MISO */
+#define GPIO_SPI1_MOSI   GPIO_SPI1_MOSI_1               /* PA7, AT7456E SDIN  */
+#define GPIO_SPI1_SCK    GPIO_SPI1_SCK_1                /* PA5, 50 MHz GPIO slew for clean SPI edges */
 
 
 

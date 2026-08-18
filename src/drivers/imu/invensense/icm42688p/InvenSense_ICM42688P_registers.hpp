@@ -55,7 +55,10 @@ static constexpr uint8_t Bit5 = (1 << 5);
 static constexpr uint8_t Bit6 = (1 << 6);
 static constexpr uint8_t Bit7 = (1 << 7);
 
-static constexpr uint32_t SPI_SPEED = 24 * 1000 * 1000; // 24 MHz SPI
+// External/fly-wire installations are significantly more reliable below the
+// device maximum of 24 MHz. Probe slowly, then use 8 MHz for FIFO transfers.
+static constexpr uint32_t SPI_SPEED_PROBE = 1 * 1000 * 1000;
+static constexpr uint32_t SPI_SPEED = 8 * 1000 * 1000;
 static constexpr uint8_t DIR_READ = 0x80;
 
 static constexpr uint8_t WHOAMI = 0x47;

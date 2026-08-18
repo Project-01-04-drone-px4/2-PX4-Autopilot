@@ -82,7 +82,14 @@ ICM42688P::~ICM42688P()
 
 int ICM42688P::init()
 {
+	const uint32_t operational_frequency = get_frequency();
+	set_frequency(SPI_SPEED_PROBE);
+
 	int ret = SPI::init();
+
+	// SPI::init() includes probe(). Always restore the normal FIFO frequency,
+	// including on probe failure so a later retry starts from a known state.
+	set_frequency(operational_frequency);
 
 	if (ret != PX4_OK) {
 		DEVICE_DEBUG("SPI::init failed (%i)", ret);
