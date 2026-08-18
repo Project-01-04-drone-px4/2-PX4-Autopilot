@@ -3,64 +3,35 @@
     "configurations": [
         {
             "name": "jlink (@PX4_BOARD@)",
-            "gdbPath": "@CMAKE_GDB@",
+            "gdbPath": "@VSCODE_GDB_PATH@",
             "device": "@DEBUG_DEVICE@",
             "svdFile": "@DEBUG_SVD_FILE_PATH@",
             "rtos": "@JLINK_RTOS_PATH@",
-            "executable": "${command:cmake.launchTargetPath}",
+            "executable": "${workspaceFolder}/build/@PX4_CONFIG@/@PX4_CONFIG@.elf",
             "request": "launch",
             "type": "cortex-debug",
             "servertype": "jlink",
-            "interface": "swd",
-            //"ipAddress": "server:19020",
-            "cwd": "${workspaceFolder}",
-            "internalConsoleOptions": "openOnSessionStart",
-            "preLaunchCommands": [
-                "source ${workspaceFolder}/platforms/nuttx/Debug/PX4",
-                "source ${workspaceFolder}/platforms/nuttx/Debug/NuttX",
-                "source ${workspaceFolder}/platforms/nuttx/Debug/ARMv7M",
-                "set mem inaccessible-by-default off",
-                "set print pretty",
-            ]
-        },
-        {
-            "name": "stlink (@PX4_BOARD@)",
-            "gdbPath": "@CMAKE_GDB@",
-            "device": "@DEBUG_DEVICE@",
-            "svdFile": "@DEBUG_SVD_FILE_PATH@",
-            "executable": "${command:cmake.launchTargetPath}",
-            "request": "launch",
-            "type": "cortex-debug",
-            "servertype": "stutil",
-            "cwd": "${workspaceFolder}",
-            "internalConsoleOptions": "openOnSessionStart",
-            "preLaunchCommands": [
-                "source ${workspaceFolder}/platforms/nuttx/Debug/PX4",
-                "source ${workspaceFolder}/platforms/nuttx/Debug/NuttX",
-                "source ${workspaceFolder}/platforms/nuttx/Debug/ARMv7M",
-                "set mem inaccessible-by-default off",
-                "set print pretty",
-            ]
-        },
-        {
-            "name": "blackmagic (@PX4_BOARD@)",
-            "gdbPath": "@CMAKE_GDB@",
-            "device": "@DEBUG_DEVICE@",
-            "svdFile": "@DEBUG_SVD_FILE_PATH@",
-            "executable": "${command:cmake.launchTargetPath}",
-            "request": "launch",
-            "type": "cortex-debug",
-            "servertype": "bmp",
-            "BMPGDBSerialPort": "/dev/ttyACM0",
+            "serverpath": "C:/Program Files/SEGGER/JLink_V798f/JLinkGDBServerCL.exe",
             "interface": "swd",
             "cwd": "${workspaceFolder}",
             "internalConsoleOptions": "openOnSessionStart",
-            "preLaunchCommands": [
-                "source ${workspaceFolder}/platforms/nuttx/Debug/PX4",
-                "source ${workspaceFolder}/platforms/nuttx/Debug/NuttX",
-                "source ${workspaceFolder}/platforms/nuttx/Debug/ARMv7M",
+            "overrideLaunchCommands": [
+                "monitor reset",
+                "monitor halt",
+                "load",
+                "set $sp = *(unsigned long *)0x08020000",
+                "set $pc = *(unsigned long *)0x08020004"
+            ],
+            "overrideRestartCommands": [
+                "monitor reset",
+                "monitor halt",
+                "load",
+                "set $sp = *(unsigned long *)0x08020000",
+                "set $pc = *(unsigned long *)0x08020004"
+            ],
+            "postLaunchCommands": [
                 "set mem inaccessible-by-default off",
-                "set print pretty",
+                "set print pretty"
             ]
         }
     ]

@@ -480,6 +480,18 @@ if(NOT NUTTX_DIR MATCHES "external")
 	endif()
 
 	if(DEBUG_DEVICE)
+		# VS Code runs as a native Windows process even when PX4 is configured
+		# from Cygwin. Convert /cygdrive/... so Cortex-Debug can launch GDB.
+		set(VSCODE_GDB_PATH ${CMAKE_GDB})
+
+		if(CMAKE_GDB MATCHES "^/cygdrive/")
+			execute_process(
+				COMMAND cygpath -m ${CMAKE_GDB}
+				OUTPUT_VARIABLE VSCODE_GDB_PATH
+				OUTPUT_STRIP_TRAILING_WHITESPACE
+			)
+		endif()
+
 		configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Debug/launch.json.in ${PX4_SOURCE_DIR}/.vscode/launch.json @ONLY)
 	endif()
 endif()

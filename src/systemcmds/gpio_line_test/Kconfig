@@ -1,0 +1,5 @@
+menuconfig SYSTEMCMDS_GPIO_LINE_TEST
+	bool "gpio_line_test"
+	default n
+	---help---
+		Cycle the MicoAir H743 external IMU SPI and chip-select pins as GPIO outputs.
