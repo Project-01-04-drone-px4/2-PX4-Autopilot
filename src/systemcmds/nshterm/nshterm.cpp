@@ -72,6 +72,25 @@ extern "C" __EXPORT int nshterm_main(int argc, char *argv[])
 	/* set up the serial port with output processing */
 	int fd = open(argv[1], O_RDWR);
 
+	if (fd < 0) {
+		PX4_ERR("open %s: %d", argv[1], errno);
+		return -1;
+	}
+
+	/* A build without CONFIG_DEV_CONSOLE can return fd 0, 1, or 2 here.
+	 * Keep the device alive while replacing the standard descriptors below.
+	 */
+	if (fd <= STDERR_FILENO) {
+		const int duplicated_fd = fcntl(fd, F_DUPFD, STDERR_FILENO + 1);
+
+		if (duplicated_fd < 0) {
+			close(fd);
+			return -1;
+		}
+
+		fd = duplicated_fd;
+	}
+
 	/* Try to set baud rate */
 	struct termios uart_config;
 	int termios_state;

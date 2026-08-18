@@ -135,6 +135,18 @@ static void mavlink_usb_check(void *arg)
 				}
 
 				if (ttyacm_fd >= 0) {
+#if defined(BOARD_USB_NSH_ONLY)
+					/* Wait until sercon has created the device, then hand it to NSH. */
+					::close(ttyacm_fd);
+					ttyacm_fd = -1;
+					static const char *nshterm_argv[] {"nshterm", USB_DEVICE_PATH, nullptr};
+
+					sched_lock();
+					const int task_id = exec_builtin(nshterm_argv[0], (char **)nshterm_argv, nullptr, 0);
+					sched_unlock();
+
+					usb_auto_start_state = task_id > 0 ? UsbAutoStartState::connected : UsbAutoStartState::disconnecting;
+#else
 					int bytes_available = 0;
 					int retval = ::ioctl(ttyacm_fd, FIONREAD, &bytes_available);
 
@@ -325,6 +337,7 @@ static void mavlink_usb_check(void *arg)
 							}
 						}
 					}
+#endif
 				}
 
 			} else {
@@ -341,11 +354,13 @@ static void mavlink_usb_check(void *arg)
 
 		case UsbAutoStartState::connected:
 			if (!vbus_present && !vbus_present_prev) {
+#if !defined(BOARD_USB_NSH_ONLY)
 				sched_lock();
 				static const char app[] {"mavlink"};
 				static const char *stop_argv[] {"mavlink", "stop", "-d", USB_DEVICE_PATH, NULL};
 				exec_builtin(app, (char **)stop_argv, NULL, 0);
 				sched_unlock();
+#endif
 
 				usb_auto_start_state = UsbAutoStartState::disconnecting;
 			}

@@ -1,18 +1,12 @@
 #!/bin/sh
-#
-# board specific sensors init
-#------------------------------------------------------------------------------
+# MicoAir H743 dual external raw IMU initialization
 
-board_adc start
+if ! icm42688p -S -b 1 -c 1 -R 0 start
+then
+	echo "ERROR [init] ICM42688P on M9/PD14 not detected"
+fi
 
-# # Internal SPI bus BMI088 accel/gyro
-bmi088 -s -b 2 -A -R 6 start
-bmi088 -s -b 2 -G -R 6 start
-
-# # Internal SPI bus BMI270 accel/gyro
-bmi270 -s -b 2 -R 0 start
-
-# Internal baro
-dps310 -I start -a 118
-
-ist8310 -I -R 2 start
+if ! icm42688p -S -b 1 -c 2 -R 0 start
+then
+	echo "ERROR [init] ICM42688P on M10/PD15 not detected"
+fi
