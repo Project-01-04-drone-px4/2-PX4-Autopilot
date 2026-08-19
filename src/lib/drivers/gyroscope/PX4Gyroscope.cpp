@@ -73,7 +73,15 @@ PX4Gyroscope::PX4Gyroscope(uint32_t device_id, enum Rotation rotation) :
 	// advertise immediately to keep instance numbering in sync
 	_sensor_pub.advertise();
 
-	param_get(param_find("IMU_GYRO_RATEMAX"), &_imu_gyro_rate_max);
+	const param_t rate_max_handle = param_find("IMU_GYRO_RATEMAX");
+
+	if (rate_max_handle != PARAM_INVALID) {
+		param_get(rate_max_handle, &_imu_gyro_rate_max);
+
+	} else {
+		// Minimal sensor-only builds may omit the sensors module that defines this parameter.
+		_imu_gyro_rate_max = 400;
+	}
 }
 
 PX4Gyroscope::~PX4Gyroscope()

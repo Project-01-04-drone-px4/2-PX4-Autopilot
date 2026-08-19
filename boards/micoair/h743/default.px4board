@@ -8,7 +8,8 @@ CONFIG_BOARD_SERIAL_TEL2="/dev/ttyS1"
 CONFIG_BOARD_SERIAL_TEL3="/dev/ttyS3"
 CONFIG_BOARD_SERIAL_TEL4="/dev/ttyS6"
 CONFIG_BOARD_SERIAL_RC="/dev/ttyS4"
-CONFIG_DRIVERS_IMU_INVENSENSE_ICM42688P=y
+# Keep the module linked (but never start it in rcS) so the minimal build
+# retains the NuttX px4_task_spawn_cmd implementation required by work queues.
 CONFIG_MODULES_LOGGER=y
 CONFIG_SYSTEMCMDS_DMESG=y
 CONFIG_SYSTEMCMDS_NSHTERM=y

@@ -135,13 +135,26 @@
 #define SDIO_SLOTNO             0  /* Only one slot */
 #define SDIO_MINOR              0
 
+/* Temporary isolation build: keep USB NSH and SDMMC only while diagnosing
+ * the microSD card. This disables early SPI setup and all IMU startup.
+ */
+#define BOARD_SD_ONLY_DIAGNOSTIC 1
+#define BOARD_USB_NSH_ONLY 1
+
 /* This board provides a DMA pool and APIs */
 #define BOARD_DMA_ALLOC_POOL_SIZE 5120
 
 /* This board provides the board_on_reset interface */
 #define BOARD_HAS_ON_RESET 1
 
-#define PX4_GPIO_INIT_LIST { \
+#if defined(BOARD_SD_ONLY_DIAGNOSTIC)
+#  define PX4_GPIO_INIT_LIST { \
+		PX4_ADC_GPIO, \
+		GPIO_CAN1_TX, \
+		GPIO_CAN1_RX, \
+	}
+#else
+#  define PX4_GPIO_INIT_LIST { \
 		PX4_ADC_GPIO, \
 		GPIO_CAN1_TX, \
 		GPIO_CAN1_RX, \
@@ -149,11 +162,9 @@
 		GPIO_SPI1_CS_IMU2, \
 		GPIO_SPI1_CS_OSD, \
 	}
+#endif
 
 #define BOARD_ENABLE_CONSOLE_BUFFER
-
-/* This reduced firmware dedicates USB CDC ACM to an interactive NSH shell. */
-#define BOARD_USB_NSH_ONLY 1
 
 #define FLASH_BASED_PARAMS
 

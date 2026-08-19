@@ -49,7 +49,8 @@ else()
 		init.c
 		led.c
 		sdio.c
-		spi.cpp
+		# SD-only diagnostic build: spi.cpp is intentionally excluded while
+		# CONFIG_STM32H7_SPI1 and the external IMUs are disabled.
 		timer_config.cpp
 		usb.c
 	)
@@ -58,7 +59,6 @@ else()
 	target_link_libraries(drivers_board
 		PRIVATE
 			arch_io_pins
-			arch_spi
 			arch_board_hw_info
 			drivers__led
 			nuttx_arch

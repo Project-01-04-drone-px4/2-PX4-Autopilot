@@ -4,4 +4,59 @@ set +e
 
 ver all
 
-. /etc/init.d/rc.board_sensors
+set SDCARD_AVAILABLE no
+
+# The custom minimal ROMFS does not preserve empty directories.
+if [ ! -d "/fs/microsd" ]
+then
+	mkdir /fs/microsd
+fi
+
+# The SDIO block driver is initialized by board_app_initialize() before rcS.
+if [ -b "/dev/mmcsd0" ]
+then
+	# Media-change probing is handled asynchronously by NuttX. The original
+	# full PX4 boot naturally spends enough time here; this minimal rcS does not.
+	sleep 1
+
+	if mount -t vfat /dev/mmcsd0 /fs/microsd
+	then
+		set SDCARD_AVAILABLE yes
+		echo "INFO [init] microSD mounted at /fs/microsd"
+	else
+		echo "WARN [init] microSD mount attempt 1/3 failed; retrying"
+		sleep 1
+
+		if mount -t vfat /dev/mmcsd0 /fs/microsd
+		then
+			set SDCARD_AVAILABLE yes
+			echo "INFO [init] microSD mounted at /fs/microsd"
+		else
+			echo "WARN [init] microSD mount attempt 2/3 failed; retrying"
+			sleep 1
+
+			if mount -t vfat /dev/mmcsd0 /fs/microsd
+			then
+				set SDCARD_AVAILABLE yes
+				echo "INFO [init] microSD mounted at /fs/microsd"
+			else
+				echo "ERROR [init] failed to mount /dev/mmcsd0 after 3 attempts"
+			fi
+		fi
+	fi
+else
+	echo "ERROR [init] microSD block device /dev/mmcsd0 not found"
+fi
+
+# Temporary SD-only diagnostic build. Do not start SPI sensors, logger,
+# MAVLink or any other PX4 runtime task. USB is forced to an NSH shell by
+# BOARD_USB_NSH_ONLY in board_config.h.
+if [ $SDCARD_AVAILABLE = yes ]
+then
+	echo "INFO [init] SD-only diagnostic: microSD is ready"
+	df
+else
+	echo "ERROR [init] SD-only diagnostic: microSD is not ready"
+fi
+
+unset SDCARD_AVAILABLE
