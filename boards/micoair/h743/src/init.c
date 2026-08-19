@@ -124,10 +124,10 @@ __EXPORT void stm32_boardinitialize(void)
 	const uint32_t gpio[] = PX4_GPIO_INIT_LIST;
 	px4_gpio_init(gpio, arraySize(gpio));
 
-	/* Leave SPI1 completely untouched in the temporary SD-only diagnostic
-	 * build, so SDMMC can be tested without any SPI/IMU side effects.
+	/* BOARD_SD_ONLY_DIAGNOSTIC selects whether this test image leaves SPI1
+	 * untouched or registers the bus and configures its chip selects.
 	 */
-#if !defined(BOARD_SD_ONLY_DIAGNOSTIC)
+#if !BOARD_SD_ONLY_DIAGNOSTIC
 	stm32_spiinitialize();
 #endif
 

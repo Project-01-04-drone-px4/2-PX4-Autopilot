@@ -135,10 +135,12 @@
 #define SDIO_SLOTNO             0  /* Only one slot */
 #define SDIO_MINOR              0
 
-/* Temporary isolation build: keep USB NSH and SDMMC only while diagnosing
- * the microSD card. This disables early SPI setup and all IMU startup.
+/* Staged SD/SPI diagnostic switch:
+ * 1: keep USB NSH and SDMMC only; do not initialize the board SPI bus.
+ * 0: configure the SPI chip selects and register the SPI1 bus, while IMU
+ *    startup remains manual.
  */
-#define BOARD_SD_ONLY_DIAGNOSTIC 1
+#define BOARD_SD_ONLY_DIAGNOSTIC 0
 #define BOARD_USB_NSH_ONLY 1
 
 /* This board provides a DMA pool and APIs */
@@ -147,7 +149,7 @@
 /* This board provides the board_on_reset interface */
 #define BOARD_HAS_ON_RESET 1
 
-#if defined(BOARD_SD_ONLY_DIAGNOSTIC)
+#if BOARD_SD_ONLY_DIAGNOSTIC
 #  define PX4_GPIO_INIT_LIST { \
 		PX4_ADC_GPIO, \
 		GPIO_CAN1_TX, \

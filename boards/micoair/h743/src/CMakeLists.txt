@@ -49,8 +49,7 @@ else()
 		init.c
 		led.c
 		sdio.c
-		# Diagnostic stage 1: compile the SPI1 board description, but keep
-		# stm32_spiinitialize() disabled by BOARD_SD_ONLY_DIAGNOSTIC.
+		# Compile the SPI1 board description for staged SD/SPI diagnostics.
 		spi.cpp
 		timer_config.cpp
 		usb.c
