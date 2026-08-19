@@ -8,6 +8,9 @@ CONFIG_BOARD_SERIAL_TEL2="/dev/ttyS1"
 CONFIG_BOARD_SERIAL_TEL3="/dev/ttyS3"
 CONFIG_BOARD_SERIAL_TEL4="/dev/ttyS6"
 CONFIG_BOARD_SERIAL_RC="/dev/ttyS4"
+# Diagnostic stage 2: link the ICM42688P command, but keep board-level SPI
+# initialization disabled through BOARD_SD_ONLY_DIAGNOSTIC.
+CONFIG_DRIVERS_IMU_INVENSENSE_ICM42688P=y
 # Keep the module linked (but never start it in rcS) so the minimal build
 # retains the NuttX px4_task_spawn_cmd implementation required by work queues.
 CONFIG_MODULES_LOGGER=y
