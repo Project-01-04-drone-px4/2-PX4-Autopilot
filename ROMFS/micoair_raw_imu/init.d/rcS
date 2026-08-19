@@ -6,6 +6,7 @@ ver all
 
 set SDCARD_AVAILABLE no
 set FEXTRAS /fs/microsd/etc/extras.txt
+set START_FIFO_LOGGER no
 
 # The custom minimal ROMFS does not preserve empty directories.
 if [ ! -d "/fs/microsd" ]
@@ -65,9 +66,26 @@ then
 		echo "INFO [init] running addons script: ${FEXTRAS}"
 		. $FEXTRAS
 	fi
+
+	# Do not start the writer from inside a script that is itself being read
+	# from the same FAT volume. extras.txt only requests logging; after it has
+	# returned and its file has been closed, rcS starts the logger from ROMFS.
+	if [ $START_FIFO_LOGGER = yes ]
+	then
+		echo "INFO [init] extras requested automatic FIFO logging"
+		sleep 1
+
+		if logger start -f
+		then
+			echo "INFO [init] automatic FIFO logging started"
+		else
+			echo "ERROR [init] failed to start automatic FIFO logging"
+		fi
+	fi
 else
 	echo "ERROR [init] minimal diagnostic: microSD is not ready"
 fi
 
 unset FEXTRAS
+unset START_FIFO_LOGGER
 unset SDCARD_AVAILABLE
