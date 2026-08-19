@@ -5,6 +5,7 @@ set +e
 ver all
 
 set SDCARD_AVAILABLE no
+set FEXTRAS /fs/microsd/etc/extras.txt
 
 # The custom minimal ROMFS does not preserve empty directories.
 if [ ! -d "/fs/microsd" ]
@@ -48,15 +49,25 @@ else
 	echo "ERROR [init] microSD block device /dev/mmcsd0 not found"
 fi
 
-# Temporary SD-only diagnostic build. Do not start SPI sensors, logger,
-# MAVLink or any other PX4 runtime task. USB is forced to an NSH shell by
-# BOARD_USB_NSH_ONLY in board_config.h.
+# Minimal runtime diagnostic build. SD mounting is handled here, while SPI
+# sensors and logger are optionally started by the SD-card extras.txt script.
+# USB remains an interactive NSH shell through BOARD_USB_NSH_ONLY.
 if [ $SDCARD_AVAILABLE = yes ]
 then
-	echo "INFO [init] SD-only diagnostic: microSD is ready"
+	echo "INFO [init] minimal diagnostic: microSD is ready"
 	df
+
+	# Keep board-specific runtime choices on the SD card. This matches the
+	# standard PX4 extras.txt hook and allows IMUs/logger to be enabled or
+	# disabled without rebuilding the firmware.
+	if [ -f $FEXTRAS ]
+	then
+		echo "INFO [init] running addons script: ${FEXTRAS}"
+		. $FEXTRAS
+	fi
 else
-	echo "ERROR [init] SD-only diagnostic: microSD is not ready"
+	echo "ERROR [init] minimal diagnostic: microSD is not ready"
 fi
 
+unset FEXTRAS
 unset SDCARD_AVAILABLE
