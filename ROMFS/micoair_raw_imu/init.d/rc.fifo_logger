@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# This script runs in a separate NSH task. The parent rcS returns while this
+# task sleeps, so SD writes begin only after the NuttX sysinit phase is over.
+sleep 5
+
+echo "INFO [fifo_logger] starting automatic FIFO logging"
+
+if logger start -f
+then
+	echo "INFO [fifo_logger] automatic FIFO logging started"
+else
+	echo "ERROR [fifo_logger] failed to start automatic FIFO logging"
+fi

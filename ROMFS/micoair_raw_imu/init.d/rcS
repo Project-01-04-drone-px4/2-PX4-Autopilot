@@ -67,20 +67,12 @@ then
 		. $FEXTRAS
 	fi
 
-	# Do not start the writer from inside a script that is itself being read
-	# from the same FAT volume. extras.txt only requests logging; after it has
-	# returned and its file has been closed, rcS starts the logger from ROMFS.
+	# Never start SD writing from the sysinit/rcS call stack. Start a separate
+	# NSH task that waits until this script has returned, then starts Logger.
 	if [ $START_FIFO_LOGGER = yes ]
 	then
-		echo "INFO [init] extras requested automatic FIFO logging"
-		sleep 1
-
-		if logger start -f
-		then
-			echo "INFO [init] automatic FIFO logging started"
-		else
-			echo "ERROR [init] failed to start automatic FIFO logging"
-		fi
+		echo "INFO [init] scheduling automatic FIFO logging after sysinit"
+		nsh /etc/init.d/rc.fifo_logger &
 	fi
 else
 	echo "ERROR [init] minimal diagnostic: microSD is not ready"
