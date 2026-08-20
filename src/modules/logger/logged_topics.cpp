@@ -541,7 +541,11 @@ bool LoggedTopics::add_topic_multi(const char *name, uint16_t interval_ms, uint8
 
 bool LoggedTopics::initialize_logged_topics(SDLogProfileMask profile)
 {
-	int ntopics = add_topics_from_file(PX4_STORAGEDIR "/etc/logging/logger_topics.txt");
+	const bool fifo_only_profile =
+		(static_cast<int32_t>(profile) == (static_cast<int32_t>(SDLogProfileMask::RAW_IMU_GYRO_FIFO)
+						  | static_cast<int32_t>(SDLogProfileMask::RAW_IMU_ACCEL_FIFO)));
+
+	int ntopics = fifo_only_profile ? 0 : add_topics_from_file(PX4_STORAGEDIR "/etc/logging/logger_topics.txt");
 
 	if (ntopics > 0) {
 		PX4_INFO("logging %d topics from logger_topics.txt", ntopics);

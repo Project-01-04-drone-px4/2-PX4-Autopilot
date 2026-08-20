@@ -124,10 +124,13 @@ void ICM42688P::print_status()
 
 int ICM42688P::probe()
 {
+	set_frequency(SPI_SPEED_PROBE);
+
 	for (int i = 0; i < 3; i++) {
 		uint8_t whoami = RegisterRead(Register::BANK_0::WHO_AM_I);
 
 		if (whoami == WHOAMI || (isICM686 && whoami == WHOAMI686)) {
+			set_frequency(SPI_SPEED);
 			return PX4_OK;
 
 		} else {
@@ -144,6 +147,7 @@ int ICM42688P::probe()
 		}
 	}
 
+	set_frequency(SPI_SPEED);
 	return PX4_ERROR;
 }
 
@@ -298,7 +302,7 @@ void ICM42688P::RunImpl()
 				}
 			}
 
-			if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 100_ms) {
+			if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 10_s) {
 				// check configuration registers periodically or immediately following any failure
 				if (RegisterCheck(_register_bank0_cfg[_checked_register_bank0])
 				    && RegisterCheck(_register_bank1_cfg[_checked_register_bank1])

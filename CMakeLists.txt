@@ -176,6 +176,8 @@ if(PYTHON_COVERAGE)
 	set(PYTHON_EXECUTABLE coverage run -p)
 endif()
 
+option(PX4_GENERATE_VSCODE_CONFIG "Generate VS Code configuration files in .vscode" OFF)
+
 include(px4_config)
 include(kconfig)
 message(STATUS "PX4 config: ${PX4_CONFIG}")

@@ -1,0 +1,59 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+			{
+				"name": "J-Link: micoair_h743 download",
+			"type": "cortex-debug",
+			"request": "launch",
+			"servertype": "jlink",
+			"cwd": "${workspaceFolder}",
+			"executable": "${workspaceFolder}/build/micoair_h743_default/micoair_h743_default.elf",
+			"device": "STM32H743VI",
+			"svdFile": "",
+			"rtos": "",
+			"interface": "swd",
+			"gdbPath": "/home/zerozero/.local/bin/gdb-multiarch",
+			"armToolchainPath": "/usr/bin",
+			"toolchainPrefix": "arm-none-eabi",
+			"objdumpPath": "/usr/bin/arm-none-eabi-objdump",
+			"serverpath": "/home/zerozero/.local/bin/JLinkGDBServerCLExe",
+			"serverArgs": [
+				"-speed",
+				"4000",
+				"-strict",
+				"-timeout",
+				"5000"
+			],
+			"gdbServerConsolePort": 53233,
+			"internalConsoleOptions": "openOnSessionStart",
+			// "runToEntryPoint": "px4_platform_init",
+			"showDevDebugOutput": "parsed",
+			"swoConfig": {
+				"enabled": false
+			},
+			"rttConfig": {
+				"enabled": false
+			},
+			"overrideLaunchCommands": [
+				"set mem inaccessible-by-default off",
+				"set print pretty",
+				"monitor reset",
+				"monitor halt",
+				"load",
+				"set $sp = *(unsigned long *)0x08020000",
+				"set $pc = *(unsigned long *)0x08020004"
+			],
+				"overrideRestartCommands": [
+					"set mem inaccessible-by-default off",
+					"set print pretty",
+					"monitor reset",
+					"monitor halt",
+					"set $sp = *(unsigned long *)0x08020000",
+					"set $pc = *(unsigned long *)0x08020004"
+				],
+			"postLaunchCommands": [
+				"set print pretty"
+			]
+		}
+	]
+}
