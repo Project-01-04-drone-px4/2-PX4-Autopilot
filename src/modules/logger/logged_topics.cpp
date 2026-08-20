@@ -550,6 +550,9 @@ bool LoggedTopics::initialize_logged_topics(SDLogProfileMask profile)
 	if (ntopics > 0) {
 		PX4_INFO("logging %d topics from logger_topics.txt", ntopics);
 
+	} else if (fifo_only_profile) {
+		add_topic_multi("sensor_imu_fifo", 0, 2);
+
 	} else {
 		initialize_configured_topics(profile);
 	}

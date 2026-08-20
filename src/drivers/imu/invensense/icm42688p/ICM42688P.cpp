@@ -67,7 +67,7 @@ ICM42688P::ICM42688P(const I2CSPIDriverConfig &config) :
 		_enable_clock_input = false;
 	}
 
-	ConfigureSampleRate(_px4_gyro.get_max_rate_hz());
+	ConfigureSampleRate(FIFO_TRANSFER_RATE_HZ);
 }
 
 ICM42688P::~ICM42688P()
@@ -614,6 +614,7 @@ bool ICM42688P::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 
 	if (valid_samples > 0) {
 		if (ProcessTemperature(buffer.f, valid_samples)) {
+			PublishRawImuFifo(timestamp_sample, buffer.f, valid_samples);
 			ProcessGyro(timestamp_sample, buffer.f, valid_samples);
 			ProcessAccel(timestamp_sample, buffer.f, valid_samples);
 			return true;
@@ -632,6 +633,24 @@ void ICM42688P::FIFOReset()
 
 	// reset while FIFO is disabled
 	_drdy_timestamp_sample.store(0);
+}
+
+void ICM42688P::PublishRawImuFifo(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples)
+{
+	sensor_imu_fifo_s imu_fifo{};
+	imu_fifo.timestamp = timestamp_sample;
+	imu_fifo.samples = math::min(samples, static_cast<uint8_t>(sizeof(imu_fifo.gyro_x) / sizeof(imu_fifo.gyro_x[0])));
+
+	for (int i = 0; i < imu_fifo.samples; i++) {
+		imu_fifo.accel_x[i] = combine(fifo[i].ACCEL_DATA_X1, fifo[i].ACCEL_DATA_X0);
+		imu_fifo.accel_y[i] = combine(fifo[i].ACCEL_DATA_Y1, fifo[i].ACCEL_DATA_Y0);
+		imu_fifo.accel_z[i] = combine(fifo[i].ACCEL_DATA_Z1, fifo[i].ACCEL_DATA_Z0);
+		imu_fifo.gyro_x[i] = combine(fifo[i].GYRO_DATA_X1, fifo[i].GYRO_DATA_X0);
+		imu_fifo.gyro_y[i] = combine(fifo[i].GYRO_DATA_Y1, fifo[i].GYRO_DATA_Y0);
+		imu_fifo.gyro_z[i] = combine(fifo[i].GYRO_DATA_Z1, fifo[i].GYRO_DATA_Z0);
+	}
+
+	_sensor_imu_fifo_pub.publish(imu_fifo);
 }
 
 static constexpr int32_t reassemble_20bit(const uint32_t a, const uint32_t b, const uint32_t c)

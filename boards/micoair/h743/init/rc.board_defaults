@@ -13,6 +13,7 @@ param set-default PWM_MAIN_TIM0 -4
 param set-default RC_INPUT_PROTO -1
 
 param set-default IMU_GYRO_CUTOFF 80
+param set IMU_GYRO_RATEMAX 400
 set IMU_FIFO_LOG_ONLY yes
 set LOGGER_BUF 128
 param set-default SDLOG_MODE 2

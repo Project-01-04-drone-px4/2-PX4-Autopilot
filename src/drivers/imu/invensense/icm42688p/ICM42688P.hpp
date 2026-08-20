@@ -50,6 +50,8 @@
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/atomic.h>
 #include <px4_platform_common/i2c_spi_buses.h>
+#include <uORB/PublicationMulti.hpp>
+#include <uORB/topics/sensor_imu_fifo.h>
 
 using namespace InvenSense_ICM42688P;
 
@@ -73,11 +75,12 @@ private:
 	static constexpr float FIFO_SAMPLE_DT{1e6f / 8000.f};     // 8000 Hz accel & gyro ODR configured
 	static constexpr float GYRO_RATE{1e6f / FIFO_SAMPLE_DT};
 	static constexpr float ACCEL_RATE{1e6f / FIFO_SAMPLE_DT};
+	static constexpr int32_t FIFO_TRANSFER_RATE_HZ{400};
 
 	static constexpr float FIFO_TIMESTAMP_SCALING{16.f *(32.f / 30.f)}; // Used when not using clock input
 
-	// maximum FIFO samples per transfer is limited to the size of sensor_accel_fifo/sensor_gyro_fifo
-	static constexpr int32_t FIFO_MAX_SAMPLES{math::min(FIFO::SIZE / sizeof(FIFO::DATA), sizeof(sensor_gyro_fifo_s::x) / sizeof(sensor_gyro_fifo_s::x[0]), sizeof(sensor_accel_fifo_s::x) / sizeof(sensor_accel_fifo_s::x[0]) * (int)(GYRO_RATE / ACCEL_RATE))};
+	// maximum FIFO samples per transfer is limited by the logged raw IMU FIFO message
+	static constexpr int32_t FIFO_MAX_SAMPLES{math::min(static_cast<int32_t>(FIFO::SIZE / sizeof(FIFO::DATA)), static_cast<int32_t>(sizeof(sensor_imu_fifo_s::gyro_x) / sizeof(sensor_imu_fifo_s::gyro_x[0])))};
 
 	// Transfer data
 	struct FIFOTransferBuffer {
@@ -138,6 +141,7 @@ private:
 	bool FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples);
 	void FIFOReset();
 
+	void PublishRawImuFifo(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples);
 	void ProcessAccel(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples);
 	void ProcessGyro(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples);
 	bool ProcessTemperature(const FIFO::DATA fifo[], const uint8_t samples);
@@ -146,6 +150,7 @@ private:
 
 	PX4Accelerometer _px4_accel;
 	PX4Gyroscope _px4_gyro;
+	uORB::PublicationMulti<sensor_imu_fifo_s> _sensor_imu_fifo_pub{ORB_ID(sensor_imu_fifo)};
 
 	perf_counter_t _bad_register_perf{perf_alloc(PC_COUNT, MODULE_NAME": bad register")};
 	perf_counter_t _bad_transfer_perf{perf_alloc(PC_COUNT, MODULE_NAME": bad transfer")};
@@ -175,7 +180,7 @@ private:
 		FIFO_READ,
 	} _state{STATE::RESET};
 
-	uint16_t _fifo_empty_interval_us{1250}; // default 1250 us / 800 Hz transfer interval
+	uint16_t _fifo_empty_interval_us{static_cast<uint16_t>(1000000 / FIFO_TRANSFER_RATE_HZ)};
 	int32_t _fifo_gyro_samples{static_cast<int32_t>(_fifo_empty_interval_us / (1000000 / GYRO_RATE))};
 
 	uint8_t _checked_register_bank0{0};
