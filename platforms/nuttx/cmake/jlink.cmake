@@ -164,11 +164,50 @@ if(JLinkExe_PATH)
 	else()
 		# regular firmware ${PX4_BINARY_DIR}/${PX4_CONFIG}.bin
 		set(BOARD_FIRMWARE_BIN ${PX4_CONFIG}.bin)
-		set(BOARD_FIRMWARE_APP_OFFSET "0x08008000") # TODO: get from board
+		set(BOARD_FIRMWARE_APP_OFFSET "")
+		set(BOARD_LINKER_SCRIPT ${PX4_BOARD_DIR}/nuttx-config/scripts/script.ld)
+
+		if(EXISTS ${BOARD_LINKER_SCRIPT})
+			file(STRINGS ${BOARD_LINKER_SCRIPT} BOARD_LINKER_FLASH_ORIGIN_LINES
+				REGEX "^[ \t]*[A-Za-z0-9_]*[Ff][Ll][Aa][Ss][Hh][A-Za-z0-9_]*[ \t]*\\([^)]*rx[^)]*\\)[ \t]*:[ \t]*ORIGIN[ \t]*=[ \t]*0x[0-9a-fA-F]+"
+			)
+
+			foreach(BOARD_LINKER_FLASH_ORIGIN_LINE ${BOARD_LINKER_FLASH_ORIGIN_LINES})
+				if(BOARD_LINKER_FLASH_ORIGIN_LINE MATCHES "ORIGIN[ \t]*=[ \t]*(0x[0-9a-fA-F]+)")
+					set(BOARD_FIRMWARE_APP_OFFSET ${CMAKE_MATCH_1})
+					break()
+				endif()
+			endforeach()
+		endif()
+
+		if(NOT BOARD_FIRMWARE_APP_OFFSET)
+			message(FATAL_ERROR "Could not determine J-Link flash start address from ${BOARD_LINKER_SCRIPT} for ${PX4_BOARD}")
+		endif()
+
+		set(BOARD_HW_CONFIG ${PX4_BOARD_DIR}/src/hw_config.h)
+		set(BOARD_HW_APP_LOAD_ADDRESS "")
+
+		if(EXISTS ${BOARD_HW_CONFIG})
+			file(STRINGS ${BOARD_HW_CONFIG} BOARD_HW_APP_LOAD_LINES
+				REGEX "^[ \t]*#define[ \t]+APP_LOAD_ADDRESS[ \t]+0x[0-9a-fA-F]+"
+			)
+
+			foreach(BOARD_HW_APP_LOAD_LINE ${BOARD_HW_APP_LOAD_LINES})
+				if(BOARD_HW_APP_LOAD_LINE MATCHES "#define[ \t]+APP_LOAD_ADDRESS[ \t]+(0x[0-9a-fA-F]+)")
+					set(BOARD_HW_APP_LOAD_ADDRESS ${CMAKE_MATCH_1})
+					break()
+				endif()
+			endforeach()
+
+			if(BOARD_HW_APP_LOAD_ADDRESS AND NOT BOARD_HW_APP_LOAD_ADDRESS STREQUAL BOARD_FIRMWARE_APP_OFFSET)
+				message(FATAL_ERROR "APP_LOAD_ADDRESS (${BOARD_HW_APP_LOAD_ADDRESS}) does not match linker script FLASH origin (${BOARD_FIRMWARE_APP_OFFSET}) for ${PX4_BOARD}")
+			endif()
+		endif()
+
 		configure_file(${PX4_SOURCE_DIR}/platforms/nuttx/Debug/flash_bin.jlink.in ${PX4_BINARY_DIR}/flash_bin.jlink @ONLY)
 
 		add_custom_target(jlink_flash_bin
-			COMMAND ${CMAKE_COMMAND} -E echo "WARNING jlink_flash_bin currently assumes starting address ${BOARD_FIRMWARE_APP_OFFSET}"
+			COMMAND ${CMAKE_COMMAND} -E echo "jlink_flash_bin starting address ${BOARD_FIRMWARE_APP_OFFSET}"
 			COMMAND ${JLinkExe_PATH} -CommandFile ${PX4_BINARY_DIR}/flash_bin.jlink
 			DEPENDS
 				${PX4_SOURCE_DIR}/platforms/nuttx/Debug/flash_bin.jlink.in
