@@ -104,17 +104,21 @@ if("${PX4_BOARD}" MATCHES "beaglebone_blue")
 elseif("${PX4_BOARD}" MATCHES "emlid_navio2")
 	target_link_libraries(px4 PRIVATE atomic)
 
-	# vscode launch.json
-	configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Debug/launch_rpi.json.in ${PX4_SOURCE_DIR}/.vscode/launch.json COPYONLY)
+	if(PX4_GENERATE_VSCODE_CONFIG)
+		# vscode launch.json
+		configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Debug/launch_rpi.json.in ${PX4_SOURCE_DIR}/.vscode/launch.json COPYONLY)
+	endif()
 
 elseif("${PX4_BOARD}" MATCHES "sitl")
 
-	# vscode launch.json
-	if(${PX4_BOARD_LABEL} MATCHES "replay")
-		configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Debug/launch_replay.json.in ${PX4_SOURCE_DIR}/.vscode/launch.json COPYONLY)
+	if(PX4_GENERATE_VSCODE_CONFIG)
+		# vscode launch.json
+		if(${PX4_BOARD_LABEL} MATCHES "replay")
+			configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Debug/launch_replay.json.in ${PX4_SOURCE_DIR}/.vscode/launch.json COPYONLY)
 
-	else()
-		configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Debug/launch_sitl.json.in ${PX4_SOURCE_DIR}/.vscode/launch.json COPYONLY)
+		else()
+			configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Debug/launch_sitl.json.in ${PX4_SOURCE_DIR}/.vscode/launch.json COPYONLY)
+		endif()
 	endif()
 
 	set(SITL_WORKING_DIR ${PX4_BINARY_DIR}/rootfs)
