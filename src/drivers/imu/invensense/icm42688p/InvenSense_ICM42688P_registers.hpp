@@ -55,7 +55,8 @@ static constexpr uint8_t Bit5 = (1 << 5);
 static constexpr uint8_t Bit6 = (1 << 6);
 static constexpr uint8_t Bit7 = (1 << 7);
 
-static constexpr uint32_t SPI_SPEED = 24 * 1000 * 1000; // 24 MHz SPI
+static constexpr uint32_t SPI_SPEED_PROBE = 1 * 1000 * 1000; // 1 MHz SPI for WHOAMI/probe
+static constexpr uint32_t SPI_SPEED = 8 * 1000 * 1000; // 8 MHz SPI for stable runtime FIFO reads
 static constexpr uint8_t DIR_READ = 0x80;
 
 static constexpr uint8_t WHOAMI = 0x47;
@@ -163,6 +164,8 @@ enum INTF_CONFIG1_BIT : uint8_t {
 	RTC_MODE = Bit2, // 0: No input RTC clock is required, 1: RTC clock input is required
 	CLKSEL = Bit0,
 	CLKSEL_CLEAR = Bit1,
+	AFSR_DISABLE_SET = Bit6,
+	AFSR_DISABLE_CLEAR = Bit7,
 };
 
 // PWR_MGMT0
@@ -222,21 +225,25 @@ enum ACCEL_CONFIG0_BIT : uint8_t {
 
 // GYRO_CONFIG1
 enum GYRO_CONFIG1_BIT : uint8_t {
-	GYRO_UI_FILT_ORD = Bit3 | Bit2, // 00: 1st Order
+	GYRO_UI_FILT_ORD_3RD_SET = Bit3, // 10: 3rd Order
+	GYRO_UI_FILT_ORD_3RD_CLEAR = Bit2,
 };
 
 // GYRO_ACCEL_CONFIG0
 enum GYRO_ACCEL_CONFIG0_BIT : uint8_t {
 	// 7:4 ACCEL_UI_FILT_BW
-	ACCEL_UI_FILT_BW = Bit7 | Bit6 | Bit5 | Bit4, // 0: BW=ODR/2
+	ACCEL_UI_FILT_BW_ODR_5_SET = Bit5, // 2: BW=max(400Hz, ODR)/5
+	ACCEL_UI_FILT_BW_ODR_5_CLEAR = Bit7 | Bit6 | Bit4,
 
 	// 3:0 GYRO_UI_FILT_BW
-	GYRO_UI_FILT_BW  = Bit3 | Bit2 | Bit1 | Bit0, // 0: BW=ODR/2
+	GYRO_UI_FILT_BW_ODR_5_SET = Bit1, // 2: BW=max(400Hz, ODR)/5
+	GYRO_UI_FILT_BW_ODR_5_CLEAR = Bit3 | Bit2 | Bit0,
 };
 
 // ACCEL_CONFIG1
 enum ACCEL_CONFIG1_BIT : uint8_t {
-	ACCEL_UI_FILT_ORD = Bit4 | Bit3, // 00: 1st Order
+	ACCEL_UI_FILT_ORD_3RD_SET = Bit4, // 10: 3rd Order
+	ACCEL_UI_FILT_ORD_3RD_CLEAR = Bit3,
 };
 
 // TMST_CONFIG
