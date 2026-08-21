@@ -300,8 +300,7 @@ int LogWriterFile::thread_start()
 	pthread_attr_init(&thr_attr);
 
 	sched_param param;
-	/* low priority, as this is expensive disk I/O */
-	param.sched_priority = SCHED_PRIORITY_DEFAULT - 40;
+	param.sched_priority = SCHED_PRIORITY_LOG_WRITER;
 	(void)pthread_attr_setschedparam(&thr_attr, &param);
 
 	pthread_attr_setstacksize(&thr_attr, PX4_STACK_ADJUSTED(1170));
@@ -369,7 +368,7 @@ void LogWriterFile::run()
 			const hrt_abstime now = hrt_absolute_time();
 
 			/* call fsync periodically to minimize potential loss of data */
-			const bool call_fsync = ++poll_count >= 100 || now - last_fsync > 1_s || _want_fsync.load();
+			const bool call_fsync = ++poll_count >= 1000 || now - last_fsync > 10_s || _want_fsync.load();
 			_want_fsync.store(false);
 
 			if (call_fsync) {

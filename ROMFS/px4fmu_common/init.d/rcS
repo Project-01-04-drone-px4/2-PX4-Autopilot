@@ -27,6 +27,7 @@ set FRC /fs/microsd/etc/rc.txt
 set IOFW "/etc/extras/px4_io-v2_default.bin"
 set LOGGER_ARGS ""
 set LOGGER_BUF 8
+set IMU_FIFO_LOG_ONLY no
 set PARAM_FILE ""
 set PARAM_BACKUP_FILE ""
 set RC_INPUT_ARGS ""
@@ -218,9 +219,35 @@ else
 	fi
 	unset AUTOSTART_PATH
 
-	#
-	# Start the tone_alarm driver.
-	# Needs to be started after the parameters are loaded (for CBRK_BUZZER).
+	if [ $IMU_FIFO_LOG_ONLY = yes ]
+	then
+		echo "INFO [init] IMU FIFO logging only"
+
+		if [ -f $FCONFIG ]
+		then
+			echo "Custom: ${FCONFIG}"
+			. $FCONFIG
+		fi
+
+		set BOARD_RC_SENSORS ${R}etc/init.d/rc.board_sensors
+		if [ -f $BOARD_RC_SENSORS ]
+		then
+			echo "Board sensors: ${BOARD_RC_SENSORS}"
+			. $BOARD_RC_SENSORS
+		fi
+		unset BOARD_RC_SENSORS
+
+		. ${R}etc/init.d/rc.sensors
+		sensors start
+
+		param set SDLOG_MODE 2
+		param set SDLOG_PROFILE 768
+		. ${R}etc/init.d/rc.logging
+	else
+
+		#
+		# Start the tone_alarm driver.
+		# Needs to be started after the parameters are loaded (for CBRK_BUZZER).
 	#
 	tone_alarm start
 
@@ -520,15 +547,17 @@ else
 		then
 			tune_control play error
 		fi
-	else
-		if param greater -s CYPHAL_ENABLE 0
-		then
-			cyphal start
+		else
+			if param greater -s CYPHAL_ENABLE 0
+			then
+				cyphal start
+			fi
 		fi
+
 	fi
 
-#
-# End of autostart.
+	#
+	# End of autostart.
 #
 fi
 
@@ -542,6 +571,7 @@ unset FRC
 unset IOFW
 unset LOGGER_ARGS
 unset LOGGER_BUF
+unset IMU_FIFO_LOG_ONLY
 unset PARAM_FILE
 unset PARAM_BACKUP_FILE
 unset RC_INPUT_ARGS
