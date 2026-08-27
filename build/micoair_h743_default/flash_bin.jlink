@@ -1,0 +1,9 @@
+Device STM32H743VI
+eoe 1
+si SWD
+speed auto
+r
+h
+loadbin micoair_h743_default.bin,0x08020000
+go
+qc

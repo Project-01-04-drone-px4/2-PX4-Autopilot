@@ -16,6 +16,9 @@
 Testing/
 Packages/*
 build/*
+!build/micoair_h743_default/
+build/micoair_h743_default/*
+!build/micoair_h743_default/flash_bin.jlink
 build_*/
 cscope.out
 cscope.in.out
