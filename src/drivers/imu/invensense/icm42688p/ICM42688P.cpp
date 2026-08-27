@@ -67,7 +67,7 @@ ICM42688P::ICM42688P(const I2CSPIDriverConfig &config) :
 		_enable_clock_input = false;
 	}
 
-	ConfigureSampleRate(_px4_gyro.get_max_rate_hz());
+	ConfigureSampleRate(FIFO_TRANSFER_RATE_HZ);
 }
 
 ICM42688P::~ICM42688P()
@@ -124,10 +124,13 @@ void ICM42688P::print_status()
 
 int ICM42688P::probe()
 {
+	set_frequency(SPI_SPEED_PROBE);
+
 	for (int i = 0; i < 3; i++) {
 		uint8_t whoami = RegisterRead(Register::BANK_0::WHO_AM_I);
 
 		if (whoami == WHOAMI || (isICM686 && whoami == WHOAMI686)) {
+			set_frequency(SPI_SPEED);
 			return PX4_OK;
 
 		} else {
@@ -144,6 +147,7 @@ int ICM42688P::probe()
 		}
 	}
 
+	set_frequency(SPI_SPEED);
 	return PX4_ERROR;
 }
 
@@ -298,12 +302,11 @@ void ICM42688P::RunImpl()
 				}
 			}
 
-			if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 100_ms) {
+			if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 10_s) {
 				// check configuration registers periodically or immediately following any failure
 				if (RegisterCheck(_register_bank0_cfg[_checked_register_bank0])
 				    && RegisterCheck(_register_bank1_cfg[_checked_register_bank1])
-				    && RegisterCheck(_register_bank2_cfg[_checked_register_bank2])
-				   ) {
+				    && RegisterCheck(_register_bank2_cfg[_checked_register_bank2])) {
 					_last_config_check_timestamp = now;
 					_checked_register_bank0 = (_checked_register_bank0 + 1) % size_register_bank0_cfg;
 					_checked_register_bank1 = (_checked_register_bank1 + 1) % size_register_bank1_cfg;
@@ -356,7 +359,7 @@ void ICM42688P::ConfigureCLKIN()
 {
 	for (auto &r0 : _register_bank0_cfg) {
 		if (r0.reg == Register::BANK_0::INTF_CONFIG1) {
-			r0.set_bits = INTF_CONFIG1_BIT::RTC_MODE;
+			r0.set_bits |= INTF_CONFIG1_BIT::RTC_MODE;
 		}
 	}
 
@@ -610,6 +613,7 @@ bool ICM42688P::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 
 	if (valid_samples > 0) {
 		if (ProcessTemperature(buffer.f, valid_samples)) {
+			PublishRawImuFifo(timestamp_sample, buffer.f, valid_samples);
 			ProcessGyro(timestamp_sample, buffer.f, valid_samples);
 			ProcessAccel(timestamp_sample, buffer.f, valid_samples);
 			return true;
@@ -628,6 +632,24 @@ void ICM42688P::FIFOReset()
 
 	// reset while FIFO is disabled
 	_drdy_timestamp_sample.store(0);
+}
+
+void ICM42688P::PublishRawImuFifo(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples)
+{
+	sensor_imu_fifo_s imu_fifo{};
+	imu_fifo.timestamp = timestamp_sample;
+	imu_fifo.samples = math::min(samples, static_cast<uint8_t>(sizeof(imu_fifo.gyro_x) / sizeof(imu_fifo.gyro_x[0])));
+
+	for (int i = 0; i < imu_fifo.samples; i++) {
+		imu_fifo.accel_x[i] = combine(fifo[i].ACCEL_DATA_X1, fifo[i].ACCEL_DATA_X0);
+		imu_fifo.accel_y[i] = combine(fifo[i].ACCEL_DATA_Y1, fifo[i].ACCEL_DATA_Y0);
+		imu_fifo.accel_z[i] = combine(fifo[i].ACCEL_DATA_Z1, fifo[i].ACCEL_DATA_Z0);
+		imu_fifo.gyro_x[i] = combine(fifo[i].GYRO_DATA_X1, fifo[i].GYRO_DATA_X0);
+		imu_fifo.gyro_y[i] = combine(fifo[i].GYRO_DATA_Y1, fifo[i].GYRO_DATA_Y0);
+		imu_fifo.gyro_z[i] = combine(fifo[i].GYRO_DATA_Z1, fifo[i].GYRO_DATA_Z0);
+	}
+
+	_sensor_imu_fifo_pub.publish(imu_fifo);
 }
 
 static constexpr int32_t reassemble_20bit(const uint32_t a, const uint32_t b, const uint32_t c)
@@ -672,11 +694,11 @@ void ICM42688P::ProcessAccel(const hrt_abstime &timestamp_sample, const FIFO::DA
 		// Sign extension + Accel [19:12] + Accel [11:4] + Accel [3:2] (20 bit extension byte)
 		// Accel data is 18 bit ()
 		int32_t accel_x = reassemble_20bit(fifo[i].ACCEL_DATA_X1, fifo[i].ACCEL_DATA_X0,
-						   fifo[i].Ext_Accel_X_Gyro_X & 0xF0 >> 4);
+						   (fifo[i].Ext_Accel_X_Gyro_X & 0xF0) >> 4);
 		int32_t accel_y = reassemble_20bit(fifo[i].ACCEL_DATA_Y1, fifo[i].ACCEL_DATA_Y0,
-						   fifo[i].Ext_Accel_Y_Gyro_Y & 0xF0 >> 4);
+						   (fifo[i].Ext_Accel_Y_Gyro_Y & 0xF0) >> 4);
 		int32_t accel_z = reassemble_20bit(fifo[i].ACCEL_DATA_Z1, fifo[i].ACCEL_DATA_Z0,
-						   fifo[i].Ext_Accel_Z_Gyro_Z & 0xF0 >> 4);
+						   (fifo[i].Ext_Accel_Z_Gyro_Z & 0xF0) >> 4);
 
 		// sample invalid if -524288
 		if (accel_x != -524288 && accel_y != -524288 && accel_z != -524288) {
