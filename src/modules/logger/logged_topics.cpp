@@ -597,6 +597,10 @@ void LoggedTopics::initialize_configured_topics(SDLogProfileMask profile)
 		add_raw_imu_accel_fifo();
 	}
 
+	if (profile & SDLogProfileMask::RAW_IMU_COMBINED_FIFO) {
+		add_topic_multi("sensor_imu_fifo", 0, 2);
+	}
+
 	if (profile & SDLogProfileMask::MAVLINK_TUNNEL) {
 		add_mavlink_tunnel();
 	}
