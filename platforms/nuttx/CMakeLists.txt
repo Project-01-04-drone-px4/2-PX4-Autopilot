@@ -479,7 +479,7 @@ if(NOT NUTTX_DIR MATCHES "external")
 		message(STATUS "Found SVD: ${DEBUG_SVD_FILE_PATH}")
 	endif()
 
-	if(DEBUG_DEVICE)
+	if(PX4_GENERATE_VSCODE_CONFIG AND DEBUG_DEVICE)
 		configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Debug/launch.json.in ${PX4_SOURCE_DIR}/.vscode/launch.json @ONLY)
 	endif()
 endif()

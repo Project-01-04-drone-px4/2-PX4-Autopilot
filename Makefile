@@ -130,6 +130,9 @@ else
 endif
 
 CMAKE_ARGS ?=
+PX4_GENERATE_VSCODE_CONFIG ?= OFF
+
+override CMAKE_ARGS += -DPX4_GENERATE_VSCODE_CONFIG=$(PX4_GENERATE_VSCODE_CONFIG)
 
 # additional config parameters passed to cmake
 ifdef EXTERNAL_MODULES_LOCATION
