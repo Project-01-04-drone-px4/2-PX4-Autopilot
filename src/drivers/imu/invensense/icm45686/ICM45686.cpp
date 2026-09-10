@@ -132,16 +132,22 @@ void ICM45686::print_status()
 
 int ICM45686::probe()
 {
+	set_frequency(SPI_SPEED_PROBE);
+
 	for (int i = 0; i < 3; i++) {
 		const uint8_t whoami = RegisterRead(Register::BANK_0::WHO_AM_I);
 
-		if (whoami != WHOAMI) {
+		if (whoami == WHOAMI) {
+			set_frequency(SPI_SPEED);
+			return PX4_OK;
+
+		} else {
 			DEVICE_DEBUG("unexpected WHO_AM_I 0x%02x", whoami);
-			return PX4_ERROR;
 		}
 	}
 
-	return PX4_OK;
+	set_frequency(SPI_SPEED);
+	return PX4_ERROR;
 }
 
 void ICM45686::RunImpl()

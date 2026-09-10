@@ -240,8 +240,6 @@ else
 		. ${R}etc/init.d/rc.sensors
 		sensors start
 
-		param set SDLOG_MODE 2
-		param set SDLOG_PROFILE 768
 		. ${R}etc/init.d/rc.logging
 	else
 
