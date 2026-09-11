@@ -33,6 +33,8 @@
 
 #include "ICM45686.hpp"
 
+#include <px4_platform_common/time.h>
+
 using namespace time_literals;
 
 static constexpr int16_t combine(uint8_t msb, uint8_t lsb)
@@ -79,7 +81,7 @@ ICM45686::ICM45686(const I2CSPIDriverConfig &config) :
 		_enable_clock_input = false;
 	}
 
-	ConfigureSampleRate(_px4_gyro.get_max_rate_hz());
+	ConfigureSampleRate(FIFO_TRANSFER_RATE_HZ);
 }
 
 ICM45686::~ICM45686()
@@ -329,10 +331,34 @@ bool ICM45686::Configure()
 		}
 	}
 
-	// 20-bits data format used the only FSR settings that are operational
-	// are ±4000dps for gyroscope and ±32 for accelerometer
-	_px4_accel.set_range(32.f * CONSTANTS_ONE_G);
-	_px4_gyro.set_range(math::radians(4000.f));
+	// AAF and UI LPF are configured through IREG indirect registers.
+	// AAF is disabled and the UI LPF is bypassed for the selected 6400 Hz ODR.
+	if (!RegisterSetAndClearIndirect(Register::IPREG::ACCEL_SRC_CTRL,
+					 ACCEL_SRC_CTRL_BIT::ACCEL_SRC_CTRL_OFF,
+					 ACCEL_SRC_CTRL_BIT::ACCEL_SRC_CTRL_MASK)) {
+		success = false;
+	}
+
+	if (!RegisterSetAndClearIndirect(Register::IPREG::GYRO_SRC_CTRL,
+					 GYRO_SRC_CTRL_BIT::GYRO_SRC_CTRL_OFF,
+					 GYRO_SRC_CTRL_BIT::GYRO_SRC_CTRL_MASK)) {
+		success = false;
+	}
+
+	if (!RegisterSetAndClearIndirect(Register::IPREG::ACCEL_UI_LPF,
+					 ACCEL_UI_LPF_BIT::ACCEL_UI_LPF_BYPASS,
+					 ACCEL_UI_LPF_BIT::ACCEL_UI_LPF_MASK)) {
+		success = false;
+	}
+
+	if (!RegisterSetAndClearIndirect(Register::IPREG::GYRO_UI_LPF,
+					 GYRO_UI_LPF_BIT::GYRO_UI_LPF_BYPASS,
+					 GYRO_UI_LPF_BIT::GYRO_UI_LPF_MASK)) {
+		success = false;
+	}
+
+	_px4_accel.set_range(16.f * CONSTANTS_ONE_G);
+	_px4_gyro.set_range(math::radians(2000.f));
 
 	return success;
 }
@@ -383,6 +409,81 @@ void ICM45686::RegisterSetAndClearBits(T reg, uint8_t setbits, uint8_t clearbits
 	if (orig_val != val) {
 		RegisterWrite(reg, val);
 	}
+}
+
+bool ICM45686::WaitForIregReady()
+{
+	for (int i = 0; i < 1250; ++i) {
+		if (RegisterRead(Register::BANK_0::REG_MISC2) & REG_MISC2_BIT::IREG_DONE) {
+			return true;
+		}
+
+		px4_usleep(4);
+	}
+
+	return false;
+}
+
+bool ICM45686::RegisterReadIndirect(uint16_t reg, uint8_t &value)
+{
+	if (!WaitForIregReady()) {
+		perf_count(_bad_transfer_perf);
+		return false;
+	}
+
+	uint8_t cmd[3] {};
+	cmd[0] = static_cast<uint8_t>(Register::BANK_0::IREG_ADDR_15_8);
+	cmd[1] = static_cast<uint8_t>(reg >> 8);
+	cmd[2] = static_cast<uint8_t>(reg & 0xFF);
+
+	if (transfer(cmd, cmd, sizeof(cmd)) != PX4_OK) {
+		perf_count(_bad_transfer_perf);
+		return false;
+	}
+
+	px4_usleep(4);
+	value = RegisterRead(Register::BANK_0::IREG_DATA);
+	px4_usleep(4);
+	return true;
+}
+
+bool ICM45686::RegisterWriteIndirect(uint16_t reg, uint8_t value)
+{
+	if (!WaitForIregReady()) {
+		perf_count(_bad_transfer_perf);
+		return false;
+	}
+
+	uint8_t cmd[4] {};
+	cmd[0] = static_cast<uint8_t>(Register::BANK_0::IREG_ADDR_15_8);
+	cmd[1] = static_cast<uint8_t>(reg >> 8);
+	cmd[2] = static_cast<uint8_t>(reg & 0xFF);
+	cmd[3] = value;
+
+	if (transfer(cmd, cmd, sizeof(cmd)) != PX4_OK) {
+		perf_count(_bad_transfer_perf);
+		return false;
+	}
+
+	px4_usleep(4);
+	return true;
+}
+
+bool ICM45686::RegisterSetAndClearIndirect(uint16_t reg, uint8_t setbits, uint8_t clearbits)
+{
+	uint8_t orig_val = 0;
+
+	if (!RegisterReadIndirect(reg, orig_val)) {
+		return false;
+	}
+
+	const uint8_t val = (orig_val & ~clearbits) | setbits;
+
+	if (orig_val == val) {
+		return true;
+	}
+
+	return RegisterWriteIndirect(reg, val);
 }
 
 uint16_t ICM45686::FIFOReadCount()
@@ -467,6 +568,7 @@ bool ICM45686::FIFORead(const hrt_abstime &timestamp_sample)
 
 	if (valid_samples > 0) {
 		if (ProcessTemperature(buffer.f, valid_samples)) {
+			PublishRawImuFifo(timestamp_sample, buffer.f, valid_samples);
 			ProcessGyro(timestamp_sample, buffer.f, valid_samples);
 			ProcessAccel(timestamp_sample, buffer.f, valid_samples);
 			return true;
@@ -497,6 +599,9 @@ void ICM45686::FIFOReset()
 	// When the FIFO is disabled we can actually set the FIFO depth
 	RegisterSetBits(Register::BANK_0::FIFO_CONFIG0, FIFO_CONFIG0_BIT::FIFO_DEPTH_8K_SET);
 
+	// Flush any stale FIFO data before re-enabling streaming
+	RegisterSetBits(Register::BANK_0::FIFO_CONFIG2, FIFO_CONFIG2_BIT::FIFO_FLUSH);
+
 	// And then enable FIFO again
 	RegisterSetAndClearBits(Register::BANK_0::FIFO_CONFIG0, FIFO_CONFIG0_BIT::FIFO_MODE_STOP_ON_FULL_SET,
 				FIFO_CONFIG0_BIT::FIFO_MODE_STOP_ON_FULL_CLEAR);
@@ -507,6 +612,24 @@ void ICM45686::FIFOReset()
 			FIFO_CONFIG3_BIT::FIFO_GYRO_EN |
 			FIFO_CONFIG3_BIT::FIFO_ACCEL_EN |
 			FIFO_CONFIG3_BIT::FIFO_IF_EN);
+}
+
+void ICM45686::PublishRawImuFifo(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples)
+{
+	sensor_imu_fifo_s imu_fifo{};
+	imu_fifo.timestamp = timestamp_sample;
+	imu_fifo.samples = math::min(samples, static_cast<uint8_t>(sizeof(imu_fifo.gyro_x) / sizeof(imu_fifo.gyro_x[0])));
+
+	for (int i = 0; i < imu_fifo.samples; i++) {
+		imu_fifo.accel_x[i] = combine(fifo[i].ACCEL_DATA_XL, fifo[i].ACCEL_DATA_XH);
+		imu_fifo.accel_y[i] = combine(fifo[i].ACCEL_DATA_YL, fifo[i].ACCEL_DATA_YH);
+		imu_fifo.accel_z[i] = combine(fifo[i].ACCEL_DATA_ZL, fifo[i].ACCEL_DATA_ZH);
+		imu_fifo.gyro_x[i] = combine(fifo[i].GYRO_DATA_XL, fifo[i].GYRO_DATA_XH);
+		imu_fifo.gyro_y[i] = combine(fifo[i].GYRO_DATA_YL, fifo[i].GYRO_DATA_YH);
+		imu_fifo.gyro_z[i] = combine(fifo[i].GYRO_DATA_ZL, fifo[i].GYRO_DATA_ZH);
+	}
+
+	_sensor_imu_fifo_pub.publish(imu_fifo);
 }
 
 void ICM45686::ProcessAccel(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples)

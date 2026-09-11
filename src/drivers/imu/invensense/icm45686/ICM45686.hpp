@@ -50,6 +50,7 @@
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/atomic.h>
 #include <px4_platform_common/i2c_spi_buses.h>
+#include <uORB/topics/sensor_imu_fifo.h>
 
 using namespace InvenSense_ICM45686;
 
@@ -73,6 +74,7 @@ private:
 	static constexpr float FIFO_SAMPLE_DT{1e6f / 6400.f};     // 6400 Hz accel & gyro ODR configured
 	static constexpr float GYRO_RATE{1e6f / FIFO_SAMPLE_DT};
 	static constexpr float ACCEL_RATE{1e6f / FIFO_SAMPLE_DT};
+	static constexpr int32_t FIFO_TRANSFER_RATE_HZ{400};
 
 	static constexpr float FIFO_TIMESTAMP_SCALING{16.f *(32.f / 30.f)}; // Used when not using clock input
 
@@ -109,16 +111,23 @@ private:
 	template <typename T> void RegisterSetBits(T reg, uint8_t setbits) { RegisterSetAndClearBits(reg, setbits, 0); }
 	template <typename T> void RegisterClearBits(T reg, uint8_t clearbits) { RegisterSetAndClearBits(reg, 0, clearbits); }
 
+	bool WaitForIregReady();
+	bool RegisterReadIndirect(uint16_t reg, uint8_t &value);
+	bool RegisterWriteIndirect(uint16_t reg, uint8_t value);
+	bool RegisterSetAndClearIndirect(uint16_t reg, uint8_t setbits, uint8_t clearbits);
+
 	uint16_t FIFOReadCount();
 	bool FIFORead(const hrt_abstime &timestamp_sample);
 	void FIFOReset();
 
+	void PublishRawImuFifo(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples);
 	void ProcessAccel(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples);
 	void ProcessGyro(const hrt_abstime &timestamp_sample, const FIFO::DATA fifo[], const uint8_t samples);
 	bool ProcessTemperature(const FIFO::DATA fifo[], const uint8_t samples);
 
 	PX4Accelerometer _px4_accel;
 	PX4Gyroscope _px4_gyro;
+	uORB::PublicationMulti<sensor_imu_fifo_s> _sensor_imu_fifo_pub{ORB_ID(sensor_imu_fifo)};
 
 	perf_counter_t _bad_register_perf{perf_alloc(PC_COUNT, MODULE_NAME": bad register")};
 	perf_counter_t _bad_transfer_perf{perf_alloc(PC_COUNT, MODULE_NAME": bad transfer")};
@@ -144,7 +153,7 @@ private:
 		FIFO_READ,
 	} _state{STATE::RESET};
 
-	uint16_t _fifo_empty_interval_us{1250}; // default 1250 us / 800 Hz transfer interval
+	uint16_t _fifo_empty_interval_us{static_cast<uint16_t>(1000000 / FIFO_TRANSFER_RATE_HZ)};
 	int32_t _fifo_gyro_samples{static_cast<int32_t>(_fifo_empty_interval_us / (1000000 / GYRO_RATE))};
 
 	uint8_t _checked_register_bank0{0};
@@ -153,9 +162,9 @@ private:
 		{ Register::BANK_0::INT1_CONFIG0, 0, 0},
 		{ Register::BANK_0::PWR_MGMT0, PWR_MGMT0_BIT::GYRO_MODE_LOW_NOISE | PWR_MGMT0_BIT::ACCEL_MODE_LOW_NOISE, 0 },
 
-		{ Register::BANK_0::GYRO_CONFIG0, GYRO_CONFIG0_BIT::GYRO_UI_FS_SEL_4000_DPS_SET | GYRO_CONFIG0_BIT::GYRO_ODR_6400_HZ_SET, GYRO_CONFIG0_BIT::GYRO_UI_FS_SEL_4000_DPS_CLEAR | GYRO_CONFIG0_BIT::GYRO_ODR_6400_HZ_CLEAR },
-		{ Register::BANK_0::ACCEL_CONFIG0, ACCEL_CONFIG0_BIT::ACCEL_UI_FS_SEL_32_G_SET | ACCEL_CONFIG0_BIT::ACCEL_ODR_6400_HZ_SET, ACCEL_CONFIG0_BIT::ACCEL_UI_FS_SEL_32_G_CLEAR | ACCEL_CONFIG0_BIT::ACCEL_ODR_6400_HZ_CLEAR },
-		{ Register::BANK_0::FIFO_CONFIG4, 0, FIFO_CONFIG4_BIT::FIFO_COMP_EN },
+		{ Register::BANK_0::GYRO_CONFIG0, GYRO_CONFIG0_BIT::GYRO_UI_FS_SEL_2000_DPS_SET | GYRO_CONFIG0_BIT::GYRO_ODR_6400_HZ_SET, GYRO_CONFIG0_BIT::GYRO_UI_FS_SEL_2000_DPS_CLEAR | GYRO_CONFIG0_BIT::GYRO_ODR_6400_HZ_CLEAR },
+		{ Register::BANK_0::ACCEL_CONFIG0, ACCEL_CONFIG0_BIT::ACCEL_UI_FS_SEL_16_G_SET | ACCEL_CONFIG0_BIT::ACCEL_ODR_6400_HZ_SET, ACCEL_CONFIG0_BIT::ACCEL_UI_FS_SEL_16_G_CLEAR | ACCEL_CONFIG0_BIT::ACCEL_ODR_6400_HZ_CLEAR },
+		{ Register::BANK_0::FIFO_CONFIG4, FIFO_CONFIG4_BIT::FIFO_TMST_FSYNC_EN, FIFO_CONFIG4_BIT::FIFO_COMP_EN },
 		{ Register::BANK_0::FIFO_CONFIG0, FIFO_CONFIG0_BIT::FIFO_MODE_STOP_ON_FULL_SET | FIFO_CONFIG0_BIT::FIFO_DEPTH_8K_SET, FIFO_CONFIG0_BIT::FIFO_MODE_STOP_ON_FULL_CLEAR | FIFO_CONFIG0_BIT::FIFO_DEPTH_8K_CLEAR },
 		{ Register::BANK_0::FIFO_CONFIG3, FIFO_CONFIG3_BIT::FIFO_HIRES_EN | FIFO_CONFIG3_BIT::FIFO_GYRO_EN | FIFO_CONFIG3_BIT::FIFO_ACCEL_EN | FIFO_CONFIG3_BIT::FIFO_IF_EN, 0 },
 
