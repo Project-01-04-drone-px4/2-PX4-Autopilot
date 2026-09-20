@@ -63,7 +63,7 @@
 using namespace time_literals;
 
 // location to "hide" unused display elements
-#define LOCATION_HIDDEN 234;
+#define LOCATION_HIDDEN 234
 
 struct PerformanceData {
 	bool initialization_problems{false};
@@ -127,6 +127,8 @@ private:
 
 	// send full configuration to MSP (triggers the actual update)
 	void SendConfig();
+	void SendDisplayPort();
+	bool SendDisplayPortText(uint8_t x, uint8_t y, const char *text, uint8_t attributes = 0);
 	void SendTelemetry();
 
 	// perform actions required for local updates
@@ -134,6 +136,7 @@ private:
 
 	// convenience function to check if a given symbol is enabled
 	bool enabled(const SymbolIndex &symbol);
+	uint16_t position(int32_t x, int32_t y) const;
 
 	MspV1 _msp{0};
 	int _msp_fd{-1};
@@ -160,6 +163,10 @@ private:
 
 	// local heartbeat
 	bool _heartbeat{false};
+	bool _displayport_needs_clear{true};
+	hrt_abstime _last_displayport_update{0};
+	hrt_abstime _last_config_update{0};
+	hrt_abstime _last_telemetry_update{0};
 
 	// parameters
 	DEFINE_PARAMETERS(
@@ -167,11 +174,42 @@ private:
 		(ParamInt<px4::params::OSD_CH_HEIGHT>) _param_osd_ch_height,
 		(ParamInt<px4::params::OSD_SCROLL_RATE>) _param_osd_scroll_rate,
 		(ParamInt<px4::params::OSD_DWELL_TIME>) _param_osd_dwell_time,
-		(ParamInt<px4::params::OSD_LOG_LEVEL>) _param_osd_log_level
+		(ParamInt<px4::params::OSD_LOG_LEVEL>) _param_osd_log_level,
+		(ParamInt<px4::params::OSD_CRAFT_X>) _param_osd_craft_x,
+		(ParamInt<px4::params::OSD_CRAFT_Y>) _param_osd_craft_y,
+		(ParamInt<px4::params::OSD_DISARMED_X>) _param_osd_disarmed_x,
+		(ParamInt<px4::params::OSD_DISARMED_Y>) _param_osd_disarmed_y,
+		(ParamInt<px4::params::OSD_GPS_LAT_X>) _param_osd_gps_lat_x,
+		(ParamInt<px4::params::OSD_GPS_LAT_Y>) _param_osd_gps_lat_y,
+		(ParamInt<px4::params::OSD_GPS_LON_X>) _param_osd_gps_lon_x,
+		(ParamInt<px4::params::OSD_GPS_LON_Y>) _param_osd_gps_lon_y,
+		(ParamInt<px4::params::OSD_GPS_SATS_X>) _param_osd_gps_sats_x,
+		(ParamInt<px4::params::OSD_GPS_SATS_Y>) _param_osd_gps_sats_y,
+		(ParamInt<px4::params::OSD_GPS_SPEED_X>) _param_osd_gps_speed_x,
+		(ParamInt<px4::params::OSD_GPS_SPEED_Y>) _param_osd_gps_speed_y,
+		(ParamInt<px4::params::OSD_HOME_DIST_X>) _param_osd_home_dist_x,
+		(ParamInt<px4::params::OSD_HOME_DIST_Y>) _param_osd_home_dist_y,
+		(ParamInt<px4::params::OSD_HOME_DIR_X>) _param_osd_home_dir_x,
+		(ParamInt<px4::params::OSD_HOME_DIR_Y>) _param_osd_home_dir_y,
+		(ParamInt<px4::params::OSD_BATT_VOLT_X>) _param_osd_batt_volt_x,
+		(ParamInt<px4::params::OSD_BATT_VOLT_Y>) _param_osd_batt_volt_y,
+		(ParamInt<px4::params::OSD_CURRENT_X>) _param_osd_current_x,
+		(ParamInt<px4::params::OSD_CURRENT_Y>) _param_osd_current_y,
+		(ParamInt<px4::params::OSD_MAH_DRAWN_X>) _param_osd_mah_drawn_x,
+		(ParamInt<px4::params::OSD_MAH_DRAWN_Y>) _param_osd_mah_drawn_y,
+		(ParamInt<px4::params::OSD_RSSI_X>) _param_osd_rssi_x,
+		(ParamInt<px4::params::OSD_RSSI_Y>) _param_osd_rssi_y,
+		(ParamInt<px4::params::OSD_ALTITUDE_X>) _param_osd_altitude_x,
+		(ParamInt<px4::params::OSD_ALTITUDE_Y>) _param_osd_altitude_y,
+		(ParamInt<px4::params::OSD_CROSSHAIR_X>) _param_osd_crosshair_x,
+		(ParamInt<px4::params::OSD_CROSSHAIR_Y>) _param_osd_crosshair_y,
+		(ParamInt<px4::params::OSD_CELL_VOLT_X>) _param_osd_cell_volt_x,
+		(ParamInt<px4::params::OSD_CELL_VOLT_Y>) _param_osd_cell_volt_y,
+		(ParamInt<px4::params::OSD_POWER_X>) _param_osd_power_x,
+		(ParamInt<px4::params::OSD_POWER_Y>) _param_osd_power_y
 	)
 
 	// metadata
 	char _device[64] {};
 	PerformanceData _performance_data{};
 };
-

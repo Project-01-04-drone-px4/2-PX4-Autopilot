@@ -39,6 +39,7 @@
 #include <float.h>
 #include <string.h>
 #include <math.h>
+#include <unistd.h>
 
 #include <drivers/drv_pwm_output.h>
 #include <drivers/drv_hrt.h>
@@ -102,16 +103,25 @@ bool MspV1::Send(const uint8_t message_id, const void *payload)
 
 	payload_size = desc->message_size;
 
-	uint8_t packet[MSP_FRAME_START_SIZE + payload_size + MSP_CRC_SIZE];
+	return SendPayload(message_id, payload, payload_size);
+}
+
+bool MspV1::SendPayload(const uint8_t message_id, const void *payload, size_t payload_size)
+{
+	if (payload_size > UINT8_MAX || (payload_size > 0 && payload == nullptr)) {
+		return false;
+	}
+
+	uint8_t packet[MSP_FRAME_START_SIZE + UINT8_MAX + MSP_CRC_SIZE];
 	uint8_t crc;
 
 	packet[0] = '$';
 	packet[1] = 'M';
 	packet[2] = '<';
-	packet[3] = payload_size;
+	packet[3] = static_cast<uint8_t>(payload_size);
 	packet[4] = message_id;
 
-	crc = payload_size ^ message_id;
+	crc = static_cast<uint8_t>(payload_size) ^ message_id;
 
 	memcpy(packet + MSP_FRAME_START_SIZE, payload, payload_size);
 
@@ -121,6 +131,18 @@ bool MspV1::Send(const uint8_t message_id, const void *payload)
 
 	packet[MSP_FRAME_START_SIZE + payload_size] = crc;
 
-	int packet_size =  MSP_FRAME_START_SIZE + payload_size + MSP_CRC_SIZE;
-	return  write(_fd, packet, packet_size) == packet_size;
+	const size_t packet_size = MSP_FRAME_START_SIZE + payload_size + MSP_CRC_SIZE;
+	size_t written = 0;
+
+	while (written < packet_size) {
+		const ssize_t result = write(_fd, packet + written, packet_size - written);
+
+		if (result <= 0) {
+			return false;
+		}
+
+		written += static_cast<size_t>(result);
+	}
+
+	return true;
 }

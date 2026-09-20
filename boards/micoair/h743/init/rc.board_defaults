@@ -11,6 +11,10 @@ param set-default BAT1_V_EMPTY 3.2
 param set-default SYS_HAS_MAG 1
 param set-default PWM_MAIN_TIM0 -4
 param set-default RC_INPUT_PROTO -1
+# Serial 2 (/dev/ttyS1, TEL2) is used for MSP OSD.
+# Serial 3 (/dev/ttyS2, GPS1) is used for the main GPS.
+param set-default MSP_OSD_CONFIG 102
+param set-default GPS_1_CONFIG 201
 
 param set-default IMU_GYRO_CUTOFF 80
 param set-default SYS_AUTOSTART 4001

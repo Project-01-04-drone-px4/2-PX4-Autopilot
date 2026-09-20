@@ -68,6 +68,7 @@
 #define MSP_MOTOR_TELEMETRY      139
 #define MSP_STATUS_EX            150
 #define MSP_SENSOR_STATUS        151
+#define MSP_DISPLAYPORT          182
 #define MSP_BOXIDS               119
 #define MSP_UID                  160 // Unique device ID
 #define MSP_GPSSVINFO            164 // get Signal Strength (only U-Blox)
@@ -79,6 +80,15 @@
 #define MSP_SET_RAW_RC           200 // 8 rc chan
 #define MSP_SET_RAW_GPS          201 // fix, numsat, lat, lon, alt, speed
 #define MSP_SET_WP               209 // sets a given WP (WP#, lat, lon, alt, flags)
+
+// MSP DisplayPort subcommands.
+#define MSP_DP_HEARTBEAT          0
+#define MSP_DP_RELEASE            1
+#define MSP_DP_CLEAR_SCREEN       2
+#define MSP_DP_WRITE_STRING        3
+#define MSP_DP_DRAW_SCREEN        4
+#define MSP_DP_OPTIONS             5
+#define MSP_DP_SYS                 6
 
 // bits of getActiveModes() return value
 #define MSP_MODE_ARM          0
@@ -848,4 +858,3 @@ enum betaflightDJIModesMask_e {
 // 0b00100000 resc
 // 0b01000000 acro
 // 0b10000000 acro
-

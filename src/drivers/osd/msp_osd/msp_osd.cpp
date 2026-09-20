@@ -47,10 +47,12 @@
 #include <unistd.h>
 #include <termios.h>
 #include <string.h>
+#include <stdio.h>
 
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/log.h>
 #include <px4_platform_common/posix.h>
+#include <lib/mathlib/mathlib.h>
 
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/sensor_combined.h>
@@ -65,6 +67,13 @@
 
 #include "MspV1.hpp"
 
+namespace
+{
+constexpr hrt_abstime DISPLAYPORT_FRAME_INTERVAL = 200_ms;
+constexpr hrt_abstime CONFIG_FRAME_INTERVAL = 1_s;
+constexpr hrt_abstime TELEMETRY_FRAME_INTERVAL = 200_ms;
+}
+
 //OSD elements positions
 //in betaflight configurator set OSD elements to your desired positions and in CLI type "set osd" to retreieve the numbers.
 //234 -> not visible. Horizontally 2048-2074(spacing 1), vertically 2048-2528(spacing 32). 26 characters X 15 lines
@@ -78,38 +87,6 @@ Rssi cell_voltage mah
 craft name
 
 */
-
-// Left
-const uint16_t osd_gps_lat_pos = 2048;
-const uint16_t osd_gps_lon_pos = 2080;
-const uint16_t osd_gps_sats_pos = 2112;
-
-// Center
-// Top
-const uint16_t osd_disarmed_pos = 2125;
-const uint16_t osd_home_dir_pos = 2093;
-const uint16_t osd_home_dist_pos = 2095;
-
-// Bottom row 1
-const uint16_t osd_gps_speed_pos = 2413;
-const uint16_t osd_power_pos = 2415;
-const uint16_t osd_altitude_pos = 2416;
-
-// Bottom Row 2
-const uint16_t osd_rssi_value_pos = 2445;
-const uint16_t osd_avg_cell_voltage_pos = 2446;
-const uint16_t osd_mah_drawn_pos = 2449;
-
-// Bottom Row 3
-const uint16_t osd_craft_name_pos = 2480;
-const uint16_t osd_crosshairs_pos = 2319;
-
-// Right
-const uint16_t osd_main_batt_voltage_pos = 2073;
-const uint16_t osd_current_draw_pos = 2103;
-
-
-const uint16_t osd_numerical_vario_pos = LOCATION_HIDDEN;
 
 MspOsd::MspOsd(const char *device) :
 	ModuleParams(nullptr),
@@ -138,7 +115,9 @@ bool MspOsd::init()
 
 void MspOsd::SendConfig()
 {
-	msp_osd_config_t msp_osd_config;
+	// Initialize the complete MSP configuration. Several protocol fields are
+	// not currently configurable by PX4 but must still be deterministic.
+	msp_osd_config_t msp_osd_config{};
 
 	msp_osd_config.units = 0;
 	msp_osd_config.osd_item_count = 56;
@@ -150,32 +129,45 @@ void MspOsd::SendConfig()
 	msp_osd_config.overlay_radio_mode = 0;             //  0
 
 	// display conditional elements
-	msp_osd_config.osd_craft_name_pos = enabled(SymbolIndex::CRAFT_NAME) ? osd_craft_name_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_disarmed_pos = enabled(SymbolIndex::DISARMED) ? osd_disarmed_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_lat_pos = enabled(SymbolIndex::GPS_LAT) ? osd_gps_lat_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_lon_pos = enabled(SymbolIndex::GPS_LON) ? osd_gps_lon_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_sats_pos = enabled(SymbolIndex::GPS_SATS) ? osd_gps_sats_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_speed_pos = enabled(SymbolIndex::GPS_SPEED) ? osd_gps_speed_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_home_dist_pos = enabled(SymbolIndex::HOME_DIST) ? osd_home_dist_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_home_dir_pos = enabled(SymbolIndex::HOME_DIR) ? osd_home_dir_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_main_batt_voltage_pos = enabled(SymbolIndex::MAIN_BATT_VOLTAGE) ? osd_main_batt_voltage_pos :
-			LOCATION_HIDDEN;
-	msp_osd_config.osd_current_draw_pos = enabled(SymbolIndex::CURRENT_DRAW) ? osd_current_draw_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_mah_drawn_pos = enabled(SymbolIndex::MAH_DRAWN) ? osd_mah_drawn_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_rssi_value_pos = enabled(SymbolIndex::RSSI_VALUE) ? osd_rssi_value_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_altitude_pos = enabled(SymbolIndex::ALTITUDE) ? osd_altitude_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_numerical_vario_pos = enabled(SymbolIndex::NUMERICAL_VARIO) ? osd_numerical_vario_pos :
-			LOCATION_HIDDEN;
+	msp_osd_config.osd_craft_name_pos = enabled(SymbolIndex::CRAFT_NAME) ?
+					    position(_param_osd_craft_x.get(), _param_osd_craft_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_disarmed_pos = enabled(SymbolIndex::DISARMED) ?
+					   position(_param_osd_disarmed_x.get(), _param_osd_disarmed_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_gps_lat_pos = enabled(SymbolIndex::GPS_LAT) ?
+					  position(_param_osd_gps_lat_x.get(), _param_osd_gps_lat_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_gps_lon_pos = enabled(SymbolIndex::GPS_LON) ?
+					  position(_param_osd_gps_lon_x.get(), _param_osd_gps_lon_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_gps_sats_pos = enabled(SymbolIndex::GPS_SATS) ?
+					   position(_param_osd_gps_sats_x.get(), _param_osd_gps_sats_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_gps_speed_pos = enabled(SymbolIndex::GPS_SPEED) ?
+					    position(_param_osd_gps_speed_x.get(), _param_osd_gps_speed_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_home_dist_pos = enabled(SymbolIndex::HOME_DIST) ?
+					    position(_param_osd_home_dist_x.get(), _param_osd_home_dist_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_home_dir_pos = enabled(SymbolIndex::HOME_DIR) ?
+					   position(_param_osd_home_dir_x.get(), _param_osd_home_dir_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_main_batt_voltage_pos = enabled(SymbolIndex::MAIN_BATT_VOLTAGE) ?
+			position(_param_osd_batt_volt_x.get(), _param_osd_batt_volt_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_current_draw_pos = enabled(SymbolIndex::CURRENT_DRAW) ?
+					      position(_param_osd_current_x.get(), _param_osd_current_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_mah_drawn_pos = enabled(SymbolIndex::MAH_DRAWN) ?
+					    position(_param_osd_mah_drawn_x.get(), _param_osd_mah_drawn_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_rssi_value_pos = enabled(SymbolIndex::RSSI_VALUE) ?
+					    position(_param_osd_rssi_x.get(), _param_osd_rssi_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_altitude_pos = enabled(SymbolIndex::ALTITUDE) ?
+					  position(_param_osd_altitude_x.get(), _param_osd_altitude_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_numerical_vario_pos = LOCATION_HIDDEN;
 
-	msp_osd_config.osd_power_pos = enabled(SymbolIndex::POWER) ? osd_power_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_avg_cell_voltage_pos = enabled(SymbolIndex::AVG_CELL_VOLTAGE) ? osd_avg_cell_voltage_pos :
-			LOCATION_HIDDEN;
+	msp_osd_config.osd_power_pos = enabled(SymbolIndex::POWER) ?
+				       position(_param_osd_power_x.get(), _param_osd_power_y.get()) : LOCATION_HIDDEN;
+	msp_osd_config.osd_avg_cell_voltage_pos = enabled(SymbolIndex::AVG_CELL_VOLTAGE) ?
+			position(_param_osd_cell_volt_x.get(), _param_osd_cell_volt_y.get()) : LOCATION_HIDDEN;
 
 	// the location of our crosshairs can change
 	msp_osd_config.osd_crosshairs_pos = LOCATION_HIDDEN;
 
 	if (enabled(SymbolIndex::CROSSHAIRS)) {
-		msp_osd_config.osd_crosshairs_pos = osd_crosshairs_pos - 32 * _param_osd_ch_height.get();
+		const int32_t crosshair_y = _param_osd_crosshair_y.get() - _param_osd_ch_height.get();
+		msp_osd_config.osd_crosshairs_pos = position(_param_osd_crosshair_x.get(), crosshair_y);
 	}
 
 	// possibly available, but not currently used
@@ -237,15 +229,16 @@ void MspOsd::Run()
 	if (_parameter_update_sub.updated()) {
 		// clear update
 		parameter_update_s param_update;
-		_parameter_update_sub.copy(&param_update);
-		updateParams(); // update module parameters (in DEFINE_PARAMETERS)
-		parameters_update();
-	}
+			_parameter_update_sub.copy(&param_update);
+			updateParams(); // update module parameters (in DEFINE_PARAMETERS)
+			parameters_update();
+			_displayport_needs_clear = true;
+		}
 
 	// perform first time initialization, if needed
 	if (!_is_initialized) {
 		struct termios t;
-		_msp_fd = open(_device, O_RDWR | O_NONBLOCK);
+		_msp_fd = open(_device, O_RDWR);
 
 		if (_msp_fd < 0) {
 			_performance_data.initialization_problems = true;
@@ -260,18 +253,24 @@ void MspOsd::Run()
 		t.c_oflag = 0;
 		tcsetattr(_msp_fd, TCSANOW, &t);
 
-		_msp = MspV1(_msp_fd);
+			_msp = MspV1(_msp_fd);
 
-		_is_initialized = true;
-	}
+			_is_initialized = true;
+			_displayport_needs_clear = true;
+		}
 
 	// avoid premature pessimization; if skip processing if we're effectively disabled
 	if (_param_osd_symbols.get() == 0) {
 		return;
 	}
 
-	// update display message
-	{
+	const hrt_abstime now = hrt_absolute_time();
+
+	if (now - _last_telemetry_update >= TELEMETRY_FRAME_INTERVAL) {
+		_last_telemetry_update = now;
+
+		// update display message
+		{
 		vehicle_status_s vehicle_status{};
 		_vehicle_status_sub.copy(&vehicle_status);
 
@@ -288,25 +287,25 @@ void MspOsd::Run()
 						     _param_osd_log_level.get(),
 						     _display);
 		this->Send(MSP_NAME, &display_message);
-	}
+		}
 
-	// MSP_FC_VARIANT
-	{
+		// MSP_FC_VARIANT
+		{
 		const auto msg = msp_osd::construct_FC_VARIANT();
 		this->Send(MSP_FC_VARIANT, &msg);
-	}
+		}
 
-	// MSP_STATUS
-	{
+		// MSP_STATUS
+		{
 		vehicle_status_s vehicle_status{};
 		_vehicle_status_sub.copy(&vehicle_status);
 
 		const auto msg = msp_osd::construct_STATUS(vehicle_status);
 		this->Send(MSP_STATUS, &msg);
-	}
+		}
 
-	// MSP_ANALOG
-	{
+		// MSP_ANALOG
+		{
 		battery_status_s battery_status{};
 		_battery_status_sub.copy(&battery_status);
 
@@ -317,19 +316,19 @@ void MspOsd::Run()
 					 battery_status,
 					 input_rc);
 		this->Send(MSP_ANALOG, &msg);
-	}
+		}
 
-	// MSP_BATTERY_STATE
-	{
+		// MSP_BATTERY_STATE
+		{
 		battery_status_s battery_status{};
 		_battery_status_sub.copy(&battery_status);
 
 		const auto msg = msp_osd::construct_BATTERY_STATE(battery_status);
 		this->Send(MSP_BATTERY_STATE, &msg);
-	}
+		}
 
-	// MSP_RAW_GPS
-	{
+		// MSP_RAW_GPS
+		{
 		sensor_gps_s vehicle_gps_position{};
 		_vehicle_gps_position_sub.copy(&vehicle_gps_position);
 
@@ -340,10 +339,10 @@ void MspOsd::Run()
 					 vehicle_gps_position,
 					 airspeed_validated);
 		this->Send(MSP_RAW_GPS, &msg);
-	}
+		}
 
-	// MSP_COMP_GPS
-	{
+		// MSP_COMP_GPS
+		{
 		// update heartbeat
 		_heartbeat = !_heartbeat;
 
@@ -363,19 +362,19 @@ void MspOsd::Run()
 					 vehicle_global_position,
 					 _heartbeat);
 		this->Send(MSP_COMP_GPS, &msg);
-	}
+		}
 
-	// MSP_ATTITUDE
-	{
+		// MSP_ATTITUDE
+		{
 		vehicle_attitude_s vehicle_attitude{};
 		_vehicle_attitude_sub.copy(&vehicle_attitude);
 
 		const auto msg = msp_osd::construct_ATTITUDE(vehicle_attitude);
 		this->Send(MSP_ATTITUDE, &msg);
-	}
+		}
 
-	// MSP_ALTITUDE
-	{
+		// MSP_ALTITUDE
+		{
 		sensor_gps_s vehicle_gps_position{};
 		_vehicle_gps_position_sub.copy(&vehicle_gps_position);
 
@@ -391,16 +390,26 @@ void MspOsd::Run()
 					 estimator_status,
 					 vehicle_local_position);
 		this->Send(MSP_ALTITUDE, &msg);
-	}
+		}
 
-	// MSP_MOTOR_TELEMETRY
-	{
+		// MSP_MOTOR_TELEMETRY
+		{
 		const auto msg = msp_osd::construct_ESC_SENSOR_DATA();
 		this->Send(MSP_ESC_SENSOR_DATA, &msg);
+		}
 	}
 
-	// send full configuration
-	SendConfig();
+	if (now - _last_config_update >= CONFIG_FRAME_INTERVAL) {
+		SendConfig();
+		_last_config_update = now;
+	}
+
+	if (now - _last_displayport_update >= DISPLAYPORT_FRAME_INTERVAL) {
+		// Send the actual character-based DisplayPort frame used by modern
+		// digital video systems (DJI, Walksnail and HDZero).
+		SendDisplayPort();
+		_last_displayport_update = now;
+	}
 }
 
 void MspOsd::Send(const unsigned int message_type, const void *payload)
@@ -413,6 +422,138 @@ void MspOsd::Send(const unsigned int message_type, const void *payload)
 	}
 }
 
+bool MspOsd::SendDisplayPortText(uint8_t x, uint8_t y, const char *text, uint8_t attributes)
+{
+	if (text == nullptr) {
+		return false;
+	}
+
+	const size_t text_length = strnlen(text, 30);
+	uint8_t payload[4 + 30] {};
+	payload[0] = MSP_DP_WRITE_STRING;
+	payload[1] = y;
+	payload[2] = x;
+	payload[3] = attributes;
+	memcpy(&payload[4], text, text_length);
+
+	const bool result = _msp.SendPayload(MSP_DISPLAYPORT, payload, text_length + 4);
+
+	if (result) {
+		_performance_data.successful_sends++;
+
+	} else {
+		_performance_data.unsuccessful_sends++;
+	}
+
+	return result;
+}
+
+void MspOsd::SendDisplayPort()
+{
+	const uint8_t heartbeat[] = {MSP_DP_HEARTBEAT};
+	const uint8_t clear_screen[] = {MSP_DP_CLEAR_SCREEN};
+	const uint8_t draw_screen[] = {MSP_DP_DRAW_SCREEN};
+
+	auto send_command = [this](const uint8_t *payload, size_t size) {
+		if (_msp.SendPayload(MSP_DISPLAYPORT, payload, size)) {
+			_performance_data.successful_sends++;
+			return true;
+
+		} else {
+			_performance_data.unsuccessful_sends++;
+			return false;
+		}
+	};
+	auto x_coord = [](int32_t value) {
+		return static_cast<uint8_t>(math::constrain(value, static_cast<int32_t>(0), static_cast<int32_t>(25)));
+	};
+	auto y_coord = [](int32_t value) {
+		return static_cast<uint8_t>(math::constrain(value, static_cast<int32_t>(0), static_cast<int32_t>(14)));
+	};
+
+	send_command(heartbeat, sizeof(heartbeat));
+
+	if (_displayport_needs_clear) {
+		send_command(clear_screen, sizeof(clear_screen));
+		_displayport_needs_clear = false;
+	}
+
+	vehicle_status_s vehicle_status{};
+	_vehicle_status_sub.copy(&vehicle_status);
+
+	char message[FULL_MSG_BUFFER] {};
+	_display.get(message, hrt_absolute_time());
+
+	if (enabled(SymbolIndex::CRAFT_NAME)) {
+		SendDisplayPortText(x_coord(_param_osd_craft_x.get()), y_coord(_param_osd_craft_y.get()), message);
+	}
+
+	if (enabled(SymbolIndex::DISARMED)) {
+		const char *arming = vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED ? "ARMED" : "DISARMED";
+		char text[10];
+		snprintf(text, sizeof(text), "%-8s", arming);
+		SendDisplayPortText(x_coord(_param_osd_disarmed_x.get()), y_coord(_param_osd_disarmed_y.get()), text);
+	}
+
+	if (enabled(SymbolIndex::GPS_SATS)) {
+		sensor_gps_s gps{};
+		_vehicle_gps_position_sub.copy(&gps);
+		char text[20];
+		snprintf(text, sizeof(text), "GPS:%-2u", static_cast<unsigned>(gps.satellites_used));
+		SendDisplayPortText(x_coord(_param_osd_gps_sats_x.get()), y_coord(_param_osd_gps_sats_y.get()), text);
+	}
+
+	if (enabled(SymbolIndex::ALTITUDE)) {
+		vehicle_local_position_s local_position{};
+		_vehicle_local_position_sub.copy(&local_position);
+		char text[20];
+		const float altitude = local_position.z_valid ? -local_position.z : 0.f;
+		snprintf(text, sizeof(text), "ALT:%+7.1f", static_cast<double>(altitude));
+		SendDisplayPortText(x_coord(_param_osd_altitude_x.get()), y_coord(_param_osd_altitude_y.get()), text);
+	}
+
+	if (enabled(SymbolIndex::MAIN_BATT_VOLTAGE) || enabled(SymbolIndex::CURRENT_DRAW)
+	    || enabled(SymbolIndex::MAH_DRAWN) || enabled(SymbolIndex::POWER)) {
+		battery_status_s battery{};
+		_battery_status_sub.copy(&battery);
+
+		if (enabled(SymbolIndex::MAIN_BATT_VOLTAGE)) {
+			char text[20];
+			snprintf(text, sizeof(text), "BAT:%5.2fV", static_cast<double>(battery.voltage_v));
+			SendDisplayPortText(x_coord(_param_osd_batt_volt_x.get()), y_coord(_param_osd_batt_volt_y.get()), text);
+		}
+
+		if (enabled(SymbolIndex::CURRENT_DRAW)) {
+			char text[20];
+			snprintf(text, sizeof(text), "CUR:%5.1fA", static_cast<double>(battery.current_a));
+			SendDisplayPortText(x_coord(_param_osd_current_x.get()), y_coord(_param_osd_current_y.get()), text);
+		}
+
+		if (enabled(SymbolIndex::MAH_DRAWN)) {
+			char text[20];
+			snprintf(text, sizeof(text), "MAH:%-5u", static_cast<unsigned>(battery.discharged_mah));
+			SendDisplayPortText(x_coord(_param_osd_mah_drawn_x.get()), y_coord(_param_osd_mah_drawn_y.get()), text);
+		}
+
+		if (enabled(SymbolIndex::POWER)) {
+			char text[20];
+			snprintf(text, sizeof(text), "PWR:%-5.0fW",
+				 static_cast<double>(battery.voltage_v * battery.current_a));
+			SendDisplayPortText(x_coord(_param_osd_power_x.get()), y_coord(_param_osd_power_y.get()), text);
+		}
+	}
+
+	if (enabled(SymbolIndex::RSSI_VALUE)) {
+		input_rc_s input_rc{};
+		_input_rc_sub.copy(&input_rc);
+		char text[20];
+		snprintf(text, sizeof(text), "LQ:%-3u%%", static_cast<unsigned>(input_rc.link_quality));
+		SendDisplayPortText(x_coord(_param_osd_rssi_x.get()), y_coord(_param_osd_rssi_y.get()), text);
+	}
+
+	send_command(draw_screen, sizeof(draw_screen));
+}
+
 void MspOsd::parameters_update()
 {
 	// update our display rate and dwell time
@@ -423,6 +564,13 @@ void MspOsd::parameters_update()
 bool MspOsd::enabled(const SymbolIndex &symbol)
 {
 	return _param_osd_symbols.get() & (1u << symbol);
+}
+
+uint16_t MspOsd::position(int32_t x, int32_t y) const
+{
+	x = math::constrain(x, static_cast<int32_t>(0), static_cast<int32_t>(25));
+	y = math::constrain(y, static_cast<int32_t>(0), static_cast<int32_t>(14));
+	return static_cast<uint16_t>(2048 + x + 32 * y);
 }
 
 int MspOsd::task_spawn(int argc, char *argv[])

@@ -33,14 +33,17 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
 class MspV1
 {
 public:
 	MspV1(int fd);
 	int GetMessageSize(int message_type);
 	bool Send(const uint8_t message_id, const void *payload);
+	bool SendPayload(const uint8_t message_id, const void *payload, size_t payload_size);
 
 private:
 	int _fd{-1};
 };
-
