@@ -179,6 +179,8 @@ private:
 		(ParamInt<px4::params::OSD_CRAFT_Y>) _param_osd_craft_y,
 		(ParamInt<px4::params::OSD_DISARMED_X>) _param_osd_disarmed_x,
 		(ParamInt<px4::params::OSD_DISARMED_Y>) _param_osd_disarmed_y,
+		(ParamInt<px4::params::OSD_FLYMODE_X>) _param_osd_flymode_x,
+		(ParamInt<px4::params::OSD_FLYMODE_Y>) _param_osd_flymode_y,
 		(ParamInt<px4::params::OSD_GPS_LAT_X>) _param_osd_gps_lat_x,
 		(ParamInt<px4::params::OSD_GPS_LAT_Y>) _param_osd_gps_lat_y,
 		(ParamInt<px4::params::OSD_GPS_LON_X>) _param_osd_gps_lon_x,

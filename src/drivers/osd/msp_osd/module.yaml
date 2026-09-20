@@ -31,8 +31,7 @@ parameters:
                 11: RSSI_VALUE
                 12: ALTITUDE
                 13: NUMERICAL_VARIO
-                # the following are reserved but not currently functional
-                14: (unused) FLYMODE
+                14: FLYMODE
                 15: (unused) ESC_TMP
                 16: (unused) PITCH_ANGLE
                 17: (unused) ROLL_ANGLE
@@ -40,7 +39,7 @@ parameters:
                 19: AVG_CELL_VOLTAGE
                 20: (unused) HORIZON_SIDEBARS
                 21: POWER
-            default: 16383
+            default: 557055
 
         # OSD Crosshairs Vertical Position
         OSD_CH_HEIGHT:
@@ -83,6 +82,20 @@ parameters:
                 short: OSD Disarmed Y
             type: int32
             default: 2
+            min: 0
+            max: 14
+        OSD_FLYMODE_X:
+            description:
+                short: OSD Flight Mode X
+            type: int32
+            default: 11
+            min: 0
+            max: 25
+        OSD_FLYMODE_Y:
+            description:
+                short: OSD Flight Mode Y
+            type: int32
+            default: 3
             min: 0
             max: 14
         OSD_GPS_LAT_X:

@@ -72,6 +72,65 @@ namespace
 constexpr hrt_abstime DISPLAYPORT_FRAME_INTERVAL = 200_ms;
 constexpr hrt_abstime CONFIG_FRAME_INTERVAL = 1_s;
 constexpr hrt_abstime TELEMETRY_FRAME_INTERVAL = 200_ms;
+
+const char *flight_mode_name(uint8_t nav_state)
+{
+	switch (nav_state) {
+	case vehicle_status_s::NAVIGATION_STATE_MANUAL:
+		return "MANUAL";
+
+	case vehicle_status_s::NAVIGATION_STATE_ALTCTL:
+		return "ALTCTL";
+
+	case vehicle_status_s::NAVIGATION_STATE_POSCTL:
+		return "POSCTL";
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_MISSION:
+		return "MISSION";
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_LOITER:
+		return "LOITER";
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_RTL:
+		return "RTL";
+
+	case vehicle_status_s::NAVIGATION_STATE_ACRO:
+		return "ACRO";
+
+	case vehicle_status_s::NAVIGATION_STATE_DESCEND:
+		return "DESCEND";
+
+	case vehicle_status_s::NAVIGATION_STATE_TERMINATION:
+		return "TERM";
+
+	case vehicle_status_s::NAVIGATION_STATE_OFFBOARD:
+		return "OFFBOARD";
+
+	case vehicle_status_s::NAVIGATION_STATE_STAB:
+		return "STAB";
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_TAKEOFF:
+		return "TAKEOFF";
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_LAND:
+		return "LAND";
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_FOLLOW_TARGET:
+		return "FOLLOW";
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_PRECLAND:
+		return "PRECLAND";
+
+	case vehicle_status_s::NAVIGATION_STATE_ORBIT:
+		return "ORBIT";
+
+	case vehicle_status_s::NAVIGATION_STATE_AUTO_VTOL_TAKEOFF:
+		return "VTOL_TKOF";
+
+	default:
+		return "UNKNOWN";
+	}
+}
 }
 
 //OSD elements positions
@@ -171,7 +230,8 @@ void MspOsd::SendConfig()
 	}
 
 	// possibly available, but not currently used
-	msp_osd_config.osd_flymode_pos = 			LOCATION_HIDDEN;
+	msp_osd_config.osd_flymode_pos = enabled(SymbolIndex::FLYMODE) ?
+					 position(_param_osd_flymode_x.get(), _param_osd_flymode_y.get()) : LOCATION_HIDDEN;
 	msp_osd_config.osd_esc_tmp_pos = 			LOCATION_HIDDEN;
 	msp_osd_config.osd_pitch_angle_pos = 			LOCATION_HIDDEN;
 	msp_osd_config.osd_roll_angle_pos = 			LOCATION_HIDDEN;
@@ -495,6 +555,12 @@ void MspOsd::SendDisplayPort()
 		SendDisplayPortText(x_coord(_param_osd_disarmed_x.get()), y_coord(_param_osd_disarmed_y.get()), text);
 	}
 
+	if (enabled(SymbolIndex::FLYMODE)) {
+		char text[32];
+		snprintf(text, sizeof(text), "MODE:%-24s", flight_mode_name(vehicle_status.nav_state));
+		SendDisplayPortText(x_coord(_param_osd_flymode_x.get()), y_coord(_param_osd_flymode_y.get()), text);
+	}
+
 	if (enabled(SymbolIndex::GPS_SATS)) {
 		sensor_gps_s gps{};
 		_vehicle_gps_position_sub.copy(&gps);
@@ -521,6 +587,15 @@ void MspOsd::SendDisplayPort()
 			char text[20];
 			snprintf(text, sizeof(text), "BAT:%5.2fV", static_cast<double>(battery.voltage_v));
 			SendDisplayPortText(x_coord(_param_osd_batt_volt_x.get()), y_coord(_param_osd_batt_volt_y.get()), text);
+		}
+
+		if (enabled(SymbolIndex::AVG_CELL_VOLTAGE)) {
+			char text[20];
+			const float average_cell_voltage = battery.cell_count > 0
+							   ? battery.voltage_v / battery.cell_count
+							   : 0.f;
+			snprintf(text, sizeof(text), "CELL:%4.2fV", static_cast<double>(average_cell_voltage));
+			SendDisplayPortText(x_coord(_param_osd_cell_volt_x.get()), y_coord(_param_osd_cell_volt_y.get()), text);
 		}
 
 		if (enabled(SymbolIndex::CURRENT_DRAW)) {
