@@ -54,246 +54,246 @@ parameters:
             min: -8
             max: 8
 
-        # OSD element positions. Coordinates are zero-based, with 26 columns
-        # and 15 rows. The MSP position is calculated as 2048 + X + 32 * Y.
+        # OSD element positions. Coordinates are zero-based, with the HD
+        # DisplayPort canvas of 53 columns and 20 rows.
         OSD_CRAFT_X:
             description:
                 short: OSD Craft Name X
             type: int32
             default: 16
             min: 0
-            max: 25
+            max: 52
         OSD_CRAFT_Y:
             description:
                 short: OSD Craft Name Y
             type: int32
             default: 13
             min: 0
-            max: 14
+            max: 19
         OSD_DISARMED_X:
             description:
                 short: OSD Disarmed X
             type: int32
             default: 13
             min: 0
-            max: 25
+            max: 52
         OSD_DISARMED_Y:
             description:
                 short: OSD Disarmed Y
             type: int32
             default: 2
             min: 0
-            max: 14
+            max: 19
         OSD_FLYMODE_X:
             description:
                 short: OSD Flight Mode X
             type: int32
             default: 11
             min: 0
-            max: 25
+            max: 52
         OSD_FLYMODE_Y:
             description:
                 short: OSD Flight Mode Y
             type: int32
             default: 3
             min: 0
-            max: 14
+            max: 19
         OSD_GPS_LAT_X:
             description:
                 short: OSD GPS Latitude X
             type: int32
             default: 0
             min: 0
-            max: 25
+            max: 52
         OSD_GPS_LAT_Y:
             description:
                 short: OSD GPS Latitude Y
             type: int32
             default: 0
             min: 0
-            max: 14
+            max: 19
         OSD_GPS_LON_X:
             description:
                 short: OSD GPS Longitude X
             type: int32
             default: 0
             min: 0
-            max: 25
+            max: 52
         OSD_GPS_LON_Y:
             description:
                 short: OSD GPS Longitude Y
             type: int32
             default: 1
             min: 0
-            max: 14
+            max: 19
         OSD_GPS_SATS_X:
             description:
                 short: OSD GPS Satellites X
             type: int32
             default: 0
             min: 0
-            max: 25
+            max: 52
         OSD_GPS_SATS_Y:
             description:
                 short: OSD GPS Satellites Y
             type: int32
             default: 2
             min: 0
-            max: 14
+            max: 19
         OSD_GPS_SPEED_X:
             description:
                 short: OSD GPS Speed X
             type: int32
             default: 13
             min: 0
-            max: 25
+            max: 52
         OSD_GPS_SPEED_Y:
             description:
                 short: OSD GPS Speed Y
             type: int32
             default: 11
             min: 0
-            max: 14
+            max: 19
         OSD_HOME_DIST_X:
             description:
                 short: OSD Home Distance X
             type: int32
             default: 15
             min: 0
-            max: 25
+            max: 52
         OSD_HOME_DIST_Y:
             description:
                 short: OSD Home Distance Y
             type: int32
             default: 1
             min: 0
-            max: 14
+            max: 19
         OSD_HOME_DIR_X:
             description:
                 short: OSD Home Direction X
             type: int32
             default: 13
             min: 0
-            max: 25
+            max: 52
         OSD_HOME_DIR_Y:
             description:
                 short: OSD Home Direction Y
             type: int32
             default: 1
             min: 0
-            max: 14
+            max: 19
         OSD_BATT_VOLT_X:
             description:
                 short: OSD Battery Voltage X
             type: int32
             default: 25
             min: 0
-            max: 25
+            max: 52
         OSD_BATT_VOLT_Y:
             description:
                 short: OSD Battery Voltage Y
             type: int32
             default: 0
             min: 0
-            max: 14
+            max: 19
         OSD_CURRENT_X:
             description:
                 short: OSD Current X
             type: int32
             default: 23
             min: 0
-            max: 25
+            max: 52
         OSD_CURRENT_Y:
             description:
                 short: OSD Current Y
             type: int32
             default: 1
             min: 0
-            max: 14
+            max: 19
         OSD_MAH_DRAWN_X:
             description:
                 short: OSD Consumed Capacity X
             type: int32
             default: 17
             min: 0
-            max: 25
+            max: 52
         OSD_MAH_DRAWN_Y:
             description:
                 short: OSD Consumed Capacity Y
             type: int32
             default: 12
             min: 0
-            max: 14
+            max: 19
         OSD_RSSI_X:
             description:
                 short: OSD RSSI X
             type: int32
             default: 13
             min: 0
-            max: 25
+            max: 52
         OSD_RSSI_Y:
             description:
                 short: OSD RSSI Y
             type: int32
             default: 12
             min: 0
-            max: 14
+            max: 19
         OSD_ALTITUDE_X:
             description:
                 short: OSD Altitude X
             type: int32
             default: 16
             min: 0
-            max: 25
+            max: 52
         OSD_ALTITUDE_Y:
             description:
                 short: OSD Altitude Y
             type: int32
             default: 11
             min: 0
-            max: 14
+            max: 19
         OSD_CROSSHAIR_X:
             description:
                 short: OSD Crosshair X
             type: int32
             default: 15
             min: 0
-            max: 25
+            max: 52
         OSD_CROSSHAIR_Y:
             description:
                 short: OSD Crosshair Y
             type: int32
             default: 8
             min: 0
-            max: 14
+            max: 19
         OSD_CELL_VOLT_X:
             description:
                 short: OSD Cell Voltage X
             type: int32
             default: 14
             min: 0
-            max: 25
+            max: 52
         OSD_CELL_VOLT_Y:
             description:
                 short: OSD Cell Voltage Y
             type: int32
             default: 12
             min: 0
-            max: 14
+            max: 19
         OSD_POWER_X:
             description:
                 short: OSD Power X
             type: int32
             default: 15
             min: 0
-            max: 25
+            max: 52
         OSD_POWER_Y:
             description:
                 short: OSD Power Y
             type: int32
             default: 11
             min: 0
-            max: 14
+            max: 19
 
 
         # OSD Log Level

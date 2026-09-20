@@ -65,6 +65,12 @@ using namespace time_literals;
 // location to "hide" unused display elements
 #define LOCATION_HIDDEN 234
 
+// Betaflight HD DisplayPort canvas dimensions. The legacy MSP OSD position
+// fields remain limited to the SD grid, while DisplayPort text uses this
+// wider canvas directly.
+constexpr uint8_t DISPLAYPORT_CANVAS_COLUMNS = 53;
+constexpr uint8_t DISPLAYPORT_CANVAS_ROWS = 20;
+
 struct PerformanceData {
 	bool initialization_problems{false};
 	long unsigned int successful_sends{0};

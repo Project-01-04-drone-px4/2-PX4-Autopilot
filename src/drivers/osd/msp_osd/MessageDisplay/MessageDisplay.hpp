@@ -45,11 +45,10 @@ namespace msp_osd
 // character size limitations
 #define MSG_BUFFER_SIZE 250
 
-// size of available characters, accounting for null terminator
-//  note: the craft_name seems to think it has 15 chars. From testing
-//        that seems incorrect
-#define FULL_MSG_LENGTH 12
-#define FULL_MSG_BUFFER 13
+// Size of available characters on the HD DisplayPort canvas, accounting for
+// the null terminator.
+#define FULL_MSG_LENGTH 50
+#define FULL_MSG_BUFFER 51
 
 // supported message types
 enum MessageDisplayType {

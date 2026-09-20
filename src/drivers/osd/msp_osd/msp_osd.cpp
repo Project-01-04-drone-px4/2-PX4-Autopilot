@@ -133,9 +133,9 @@ const char *flight_mode_name(uint8_t nav_state)
 }
 }
 
-//OSD elements positions
-//in betaflight configurator set OSD elements to your desired positions and in CLI type "set osd" to retreieve the numbers.
-//234 -> not visible. Horizontally 2048-2074(spacing 1), vertically 2048-2528(spacing 32). 26 characters X 15 lines
+// OSD elements positions.
+// The legacy MSP OSD position fields use a 26 x 15 SD grid. The actual
+// DisplayPort output below uses the 53 x 20 HD canvas.
 
 // Currently working elements positions (hardcoded)
 
@@ -179,6 +179,7 @@ void MspOsd::SendConfig()
 	msp_osd_config_t msp_osd_config{};
 
 	msp_osd_config.units = 0;
+	msp_osd_config.video_system = 2; // VIDEO_SYSTEM_HD
 	msp_osd_config.osd_item_count = 56;
 	msp_osd_config.osd_stat_count = 24;
 	msp_osd_config.osd_timer_count = 2;
@@ -488,8 +489,8 @@ bool MspOsd::SendDisplayPortText(uint8_t x, uint8_t y, const char *text, uint8_t
 		return false;
 	}
 
-	const size_t text_length = strnlen(text, 30);
-	uint8_t payload[4 + 30] {};
+	const size_t text_length = strnlen(text, DISPLAYPORT_CANVAS_COLUMNS);
+	uint8_t payload[4 + DISPLAYPORT_CANVAS_COLUMNS] {};
 	payload[0] = MSP_DP_WRITE_STRING;
 	payload[1] = y;
 	payload[2] = x;
@@ -525,10 +526,12 @@ void MspOsd::SendDisplayPort()
 		}
 	};
 	auto x_coord = [](int32_t value) {
-		return static_cast<uint8_t>(math::constrain(value, static_cast<int32_t>(0), static_cast<int32_t>(25)));
+		return static_cast<uint8_t>(math::constrain(value, static_cast<int32_t>(0),
+				static_cast<int32_t>(DISPLAYPORT_CANVAS_COLUMNS - 1)));
 	};
 	auto y_coord = [](int32_t value) {
-		return static_cast<uint8_t>(math::constrain(value, static_cast<int32_t>(0), static_cast<int32_t>(14)));
+		return static_cast<uint8_t>(math::constrain(value, static_cast<int32_t>(0),
+				static_cast<int32_t>(DISPLAYPORT_CANVAS_ROWS - 1)));
 	};
 
 	send_command(heartbeat, sizeof(heartbeat));
