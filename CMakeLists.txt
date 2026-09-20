@@ -119,6 +119,23 @@ execute_process(
 	WORKING_DIRECTORY ${PX4_SOURCE_DIR}
 	)
 
+# A detached or shallow checkout may not have a PX4 release tag. Keep the
+# version parseable for CMake and let the version header retain the commit ID.
+if(NOT PX4_GIT_TAG MATCHES "^v[0-9]+\\.[0-9]+\\.[0-9]+((-(dev|alpha[0-9]+|beta[0-9]+|rc[0-9]+))|(-[0-9]+\\.[0-9]+\\.[0-9]+([-](dev|alpha[0-9]+|beta[0-9]+|rc[0-9]+))?))?$")
+	file(READ "${PX4_SOURCE_DIR}/package.xml" PX4_PACKAGE_XML)
+	string(REGEX MATCH "<version>[0-9]+\\.[0-9]+\\.[0-9]+</version>" PX4_PACKAGE_VERSION_MATCH "${PX4_PACKAGE_XML}")
+	string(REGEX REPLACE ".*<version>([0-9]+\\.[0-9]+\\.[0-9]+)</version>.*" "\\1" PX4_PACKAGE_VERSION "${PX4_PACKAGE_VERSION_MATCH}")
+
+	if(PX4_PACKAGE_VERSION)
+		set(PX4_GIT_TAG "v${PX4_PACKAGE_VERSION}-dev")
+
+	else()
+		set(PX4_GIT_TAG "v1.14.0-dev")
+	endif()
+
+	message(STATUS "No valid PX4 git tag found; using ${PX4_GIT_TAG}")
+endif()
+
 # git describe to X.Y.Z version
 string(REPLACE "." ";" VERSION_LIST ${PX4_GIT_TAG})
 

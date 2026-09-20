@@ -5,6 +5,7 @@ import os
 import sys
 import subprocess
 import re
+import xml.etree.ElementTree as ET
 
 parser = argparse.ArgumentParser(description="""Extract version info from git and
 generate a version header file. The working directory is expected to be
@@ -40,6 +41,22 @@ git_describe_cmd = 'git describe --exclude ext/* --always --tags --dirty'
 git_tag = subprocess.check_output(git_describe_cmd.split(),
                                   stderr=subprocess.STDOUT).decode('utf-8').strip()
 
+
+def fallback_git_tag():
+    """Return a valid development version when the checkout has no PX4 tag."""
+    package_file = os.path.join(os.getcwd(), 'package.xml')
+
+    try:
+        package_version = ET.parse(package_file).getroot().findtext('version')
+
+        if package_version and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', package_version):
+            return 'v{}-dev'.format(package_version)
+
+    except (OSError, ET.ParseError):
+        pass
+
+    return 'v1.14.0-dev'
+
 try:
     # get the tag if we're on a tagged commit
     tag_or_branch = subprocess.check_output((git_describe_cmd+' --exact-match').split(),
@@ -68,20 +85,9 @@ if validate:
             print("")
             sys.exit(1)
     else:
-        print("")
-        print("Error: the git tag '{:}' does not match the expected format.".format(git_tag_test))
-        print("")
-        print("The expected format is 'v<PX4 version>[-<custom version>]'")
-        print("  <PX4 version>: v<major>.<minor>.<patch>[-rc<rc>|-beta<beta>|-alpha<alpha>|-dev]")
-        print("  <custom version>: <major>.<minor>.<patch>[-rc<rc>|-beta<beta>|-alpha<alpha>|-dev]")
-        print("Examples:")
-        print("  v1.9.0-rc3 (preferred)")
-        print("  v1.9.0-beta1")
-        print("  v1.9.0-1.0.0")
-        print("  v1.9.0-1.0.0-alpha2")
-        print("See also https://docs.px4.io/main/en/dev_setup/building_px4.html#building-for-nuttx")
-        print("")
-        sys.exit(1)
+        fallback_tag = fallback_git_tag()
+        print("Warning: git tag '{}' is not a PX4 version; using '{}'.".format(git_tag_test, fallback_tag))
+        git_tag = fallback_tag
 
 git_version = subprocess.check_output('git rev-parse --verify HEAD'.split(),
                                       stderr=subprocess.STDOUT).decode('utf-8').strip()
