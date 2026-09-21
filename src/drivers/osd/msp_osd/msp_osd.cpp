@@ -68,55 +68,6 @@
 
 ModuleBase::Descriptor MspOsd::desc{task_spawn, custom_command, print_usage};
 
-//OSD elements positions
-//in betaflight configurator set OSD elements to your desired positions and in CLI type "set osd" to retreieve the numbers.
-//234 -> not visible. Horizontally 2048-2074(spacing 1), vertically 2048-2528(spacing 32). 26 characters X 15 lines
-
-// Currently working elements positions (hardcoded)
-
-/* center col
-
-Speed Power Alt
-Rssi cell_voltage mah
-craft name
-
-*/
-
-// Left
-const uint16_t osd_gps_lat_pos = 2048;
-const uint16_t osd_gps_lon_pos = 2080;
-const uint16_t osd_gps_sats_pos = 2112;
-
-// Center
-// Top
-const uint16_t osd_disarmed_pos = 2125;
-const uint16_t osd_home_dir_pos = 2093;
-const uint16_t osd_home_dist_pos = 2095;
-
-// Bottom row 1
-const uint16_t osd_gps_speed_pos = 2413;
-const uint16_t osd_power_pos = 2415;
-const uint16_t osd_altitude_pos = 2416;
-
-// Bottom Row 2
-const uint16_t osd_rssi_value_pos = 2445;
-const uint16_t osd_avg_cell_voltage_pos = 2446;
-const uint16_t osd_mah_drawn_pos = 2449;
-
-// Bottom Row 3
-const uint16_t osd_craft_name_pos = 2480;
-const uint16_t osd_crosshairs_pos = 2319;
-
-// Right
-const uint16_t osd_main_batt_voltage_pos = 2073;
-const uint16_t osd_current_draw_pos = 2103;
-
-
-const uint16_t osd_numerical_vario_pos = LOCATION_HIDDEN;
-
-#define OSD_GRID_COL_MAX (59) // From betaflight-configurator OSD tab
-#define OSD_GRID_ROW_MAX (21) // From betaflight-configurator OSD tab
-
 typedef enum {
 	MSP_DP_HEARTBEAT = 0,         // Release the display after clearing and updating
 	MSP_DP_RELEASE = 1,         // Release the display after clearing and updating
@@ -152,95 +103,6 @@ bool MspOsd::init()
 	ScheduleOnInterval(100_ms);
 
 	return true;
-}
-
-void MspOsd::SendConfig()
-{
-	msp_osd_config_t msp_osd_config;
-
-	msp_osd_config.units = 0;
-	msp_osd_config.osd_item_count = 56;
-	msp_osd_config.osd_stat_count = 24;
-	msp_osd_config.osd_timer_count = 2;
-	msp_osd_config.osd_warning_count = 16;              // 16
-	msp_osd_config.osd_profile_count = 1;              // 1
-	msp_osd_config.osdprofileindex = 1;                // 1
-	msp_osd_config.overlay_radio_mode = 0;             //  0
-
-	// display conditional elements
-	msp_osd_config.osd_craft_name_pos = enabled(SymbolIndex::CRAFT_NAME) ? osd_craft_name_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_disarmed_pos = enabled(SymbolIndex::DISARMED) ? osd_disarmed_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_lat_pos = enabled(SymbolIndex::GPS_LAT) ? osd_gps_lat_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_lon_pos = enabled(SymbolIndex::GPS_LON) ? osd_gps_lon_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_sats_pos = enabled(SymbolIndex::GPS_SATS) ? osd_gps_sats_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_gps_speed_pos = enabled(SymbolIndex::GPS_SPEED) ? osd_gps_speed_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_home_dist_pos = enabled(SymbolIndex::HOME_DIST) ? osd_home_dist_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_home_dir_pos = enabled(SymbolIndex::HOME_DIR) ? osd_home_dir_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_main_batt_voltage_pos = enabled(SymbolIndex::MAIN_BATT_VOLTAGE) ? osd_main_batt_voltage_pos :
-			LOCATION_HIDDEN;
-	msp_osd_config.osd_current_draw_pos = enabled(SymbolIndex::CURRENT_DRAW) ? osd_current_draw_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_mah_drawn_pos = enabled(SymbolIndex::MAH_DRAWN) ? osd_mah_drawn_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_rssi_value_pos = enabled(SymbolIndex::RSSI_VALUE) ? osd_rssi_value_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_altitude_pos = enabled(SymbolIndex::ALTITUDE) ? osd_altitude_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_numerical_vario_pos = enabled(SymbolIndex::NUMERICAL_VARIO) ? osd_numerical_vario_pos :
-			LOCATION_HIDDEN;
-
-	msp_osd_config.osd_power_pos = enabled(SymbolIndex::POWER) ? osd_power_pos : LOCATION_HIDDEN;
-	msp_osd_config.osd_avg_cell_voltage_pos = enabled(SymbolIndex::AVG_CELL_VOLTAGE) ? osd_avg_cell_voltage_pos :
-			LOCATION_HIDDEN;
-
-	// the location of our crosshairs can change
-	msp_osd_config.osd_crosshairs_pos = LOCATION_HIDDEN;
-
-	if (enabled(SymbolIndex::CROSSHAIRS)) {
-		msp_osd_config.osd_crosshairs_pos = osd_crosshairs_pos - 32 * _param_osd_ch_pos_ver.get();
-	}
-
-	// possibly available, but not currently used
-	msp_osd_config.osd_flymode_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_esc_tmp_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_pitch_angle_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_roll_angle_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_horizon_sidebars_pos = 		LOCATION_HIDDEN;
-
-	// Not implemented or not available
-	msp_osd_config.osd_artificial_horizon_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_item_timer_1_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_item_timer_2_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_throttle_pos_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_vtx_channel_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_roll_pids_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_pitch_pids_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_yaw_pids_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_pidrate_profile_pos =		LOCATION_HIDDEN;
-	msp_osd_config.osd_warnings_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_debug_pos = 				LOCATION_HIDDEN;
-	msp_osd_config.osd_main_batt_usage_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_numerical_heading_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_compass_bar_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_esc_rpm_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_remaining_time_estimate_pos = 	LOCATION_HIDDEN;
-	msp_osd_config.osd_rtc_datetime_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_adjustment_range_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_core_temperature_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_anti_gravity_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_g_force_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_motor_diag_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_log_status_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_flip_arrow_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_link_quality_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_flight_dist_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_stick_overlay_left_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_stick_overlay_right_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_display_name_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_esc_rpm_freq_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_rate_profile_name_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_pid_profile_name_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_profile_name_pos = 			LOCATION_HIDDEN;
-	msp_osd_config.osd_rssi_dbm_value_pos = 		LOCATION_HIDDEN;
-	msp_osd_config.osd_rc_channels_pos = 			LOCATION_HIDDEN;
-
-	_msp.Send(MSP_OSD_CONFIG, &msp_osd_config);
 }
 
 // extract it to MSPOSD_BF_Run() and MSPOSD_DJIFPV_Run() for compatibility?
@@ -330,15 +192,16 @@ void MspOsd::Run()
 						     _param_osd_log_level.get(),
 						     _display);
 
-		char msg[sizeof(msp_name_t) + 5] = {0};
-		int index = 0;
-		msg[index++] = MSP_DP_WRITE_STRING;
-		msg[index++] = 0x02; // row position
-		msg[index++] = 0x14; // colum position
-		msg[index++] = 0;		// Icon attr
-		msg[index++] = 0x03; // Icon index >
-		memcpy(&msg[index++], &display_message, sizeof(msp_name_t));
-		this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msg));
+		struct {
+			uint8_t command{MSP_DP_WRITE_STRING};
+			uint8_t screenYPosition{0};
+			uint8_t screenXPosition{0};
+			uint8_t attribute{0};
+			uint8_t icon{0x03}; // >
+			msp_name_t text{};
+		} msg;
+		msg.text = display_message;
+		SendDisplay(msg, _param_osd_msg_x.get(), _param_osd_msg_y.get());
 	}
 
 	// MSP_FC_VARIANT
@@ -352,8 +215,8 @@ void MspOsd::Run()
 		if (enabled(SymbolIndex::RSSI_VALUE)) {
 			input_rc_s input_rc{};
 			_input_rc_sub.copy(&input_rc);
-			const auto msg = msp_osd::construct_rendor_RSSI(input_rc);
-			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_rssi_t));
+			auto msg = msp_osd::construct_rendor_RSSI(input_rc);
+			SendDisplay(msg, _param_osd_rssi_x.get(), _param_osd_rssi_y.get());
 		}
 	}
 
@@ -366,18 +229,18 @@ void MspOsd::Run()
 		this->Send(MSP_BATTERY_STATE, &msg_original);
 
 		if (enabled(SymbolIndex::AVG_CELL_VOLTAGE)) {
-			const auto msg = msp_osd::construct_rendor_BATTERY_STATE(battery_status);
-			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_battery_state_t));
+			auto msg = msp_osd::construct_rendor_BATTERY_STATE(battery_status);
+			SendDisplay(msg, _param_osd_cell_x.get(), _param_osd_cell_y.get());
 		}
 
 		if (enabled(SymbolIndex::CURRENT_DRAW)) {
-			const auto msg = msp_osd::construct_rendor_CURRENT_DRAW(battery_status);
-			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_current_draw_t));
+			auto msg = msp_osd::construct_rendor_CURRENT_DRAW(battery_status);
+			SendDisplay(msg, _param_osd_curr_x.get(), _param_osd_curr_y.get());
 		}
 
 		if (enabled(SymbolIndex::MAH_DRAWN)) {
-			const auto msg = msp_osd::construct_rendor_MAH_DRAWN(battery_status);
-			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_mah_drawn_t));
+			auto msg = msp_osd::construct_rendor_MAH_DRAWN(battery_status);
+			SendDisplay(msg, _param_osd_mah_x.get(), _param_osd_mah_y.get());
 		}
 	}
 
@@ -387,23 +250,23 @@ void MspOsd::Run()
 		_vehicle_gps_position_sub.copy(&vehicle_gps_position);
 
 		if (enabled(SymbolIndex::GPS_LAT)) {
-			const auto msg = msp_osd::construct_rendor_GPS_LAT(vehicle_gps_position);
-			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_latitude_t));
+			auto msg = msp_osd::construct_rendor_GPS_LAT(vehicle_gps_position);
+			SendDisplay(msg, _param_osd_lat_x.get(), _param_osd_lat_y.get());
 		}
 
 		if (enabled(SymbolIndex::GPS_LON)) {
-			const auto msg = msp_osd::construct_rendor_GPS_LON(vehicle_gps_position);
-			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_longitude_t));
+			auto msg = msp_osd::construct_rendor_GPS_LON(vehicle_gps_position);
+			SendDisplay(msg, _param_osd_lon_x.get(), _param_osd_lon_y.get());
 		}
 
 		if (enabled(SymbolIndex::GPS_SATS)) {
-			const auto msg = msp_osd::construct_rendor_GPS_NUM(vehicle_gps_position);
-			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_satellites_used_t));
+			auto msg = msp_osd::construct_rendor_GPS_NUM(vehicle_gps_position);
+			SendDisplay(msg, _param_osd_sat_x.get(), _param_osd_sat_y.get());
 		}
 
 		if (enabled(SymbolIndex::GPS_SPEED)) {
-			const auto msg = msp_osd::construct_rendor_GPS_SPEED(vehicle_gps_position);
-			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_gps_speed_t));
+			auto msg = msp_osd::construct_rendor_GPS_SPEED(vehicle_gps_position);
+			SendDisplay(msg, _param_osd_spd_x.get(), _param_osd_spd_y.get());
 		}
 	}
 
@@ -416,8 +279,8 @@ void MspOsd::Run()
 		_vehicle_global_position_sub.copy(&vehicle_global_position);
 
 		if (enabled(SymbolIndex::HOME_DIST)) {
-			const auto msg =  msp_osd::construct_rendor_distanceToHome(home_position, vehicle_global_position);
-			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_distanceToHome_t));
+			auto msg =  msp_osd::construct_rendor_distanceToHome(home_position, vehicle_global_position);
+			SendDisplay(msg, _param_osd_home_x.get(), _param_osd_home_y.get());
 		}
 	}
 
@@ -428,14 +291,14 @@ void MspOsd::Run()
 
 		{
 			if (enabled(SymbolIndex::PITCH_ANGLE)) {
-				const auto msg = msp_osd::construct_rendor_PITCH(vehicle_attitude);
-				this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_pitch_t));
+				auto msg = msp_osd::construct_rendor_PITCH(vehicle_attitude);
+				SendDisplay(msg, _param_osd_pitch_x.get(), _param_osd_pitch_y.get());
 			}
 		}
 		{
 			if (enabled(SymbolIndex::ROLL_ANGLE)) {
-				const auto msg = msp_osd::construct_rendor_ROLL(vehicle_attitude);
-				this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_roll_t));
+				auto msg = msp_osd::construct_rendor_ROLL(vehicle_attitude);
+				SendDisplay(msg, _param_osd_roll_x.get(), _param_osd_roll_y.get());
 			}
 		}
 	}
@@ -450,9 +313,8 @@ void MspOsd::Run()
 		_vehicle_local_position_sub.copy(&vehicle_local_position);
 
 		if (enabled(SymbolIndex::ALTITUDE)) {
-			const auto msg = msp_osd::construct_Rendor_ALTITUDE(vehicle_gps_position, vehicle_local_position);
-
-			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_altitude_t));
+			auto msg = msp_osd::construct_Rendor_ALTITUDE(vehicle_gps_position, vehicle_local_position);
+			SendDisplay(msg, _param_osd_alt_x.get(), _param_osd_alt_y.get());
 		}
 	}
 
@@ -489,9 +351,9 @@ void MspOsd::Run()
 	// MSP_CROSSHAIRS
 	{
 		if (enabled(SymbolIndex::CROSSHAIRS)) {
-			const auto msg = msp_osd::construct_rendor_CROSSHAIRS(_param_osd_ch_pos_ver.get(), _param_osd_ch_pos_hor.get());
-
-			this->Send(MSP_CMD_DISPLAYPORT, &msg, sizeof(msp_rendor_crosshairs_t));
+			auto msg = msp_osd::construct_rendor_CROSSHAIRS();
+			SendDisplay(msg, int64_t{_param_osd_ch_x.get()} + _param_osd_ch_pos_hor.get(),
+				    int64_t{_param_osd_ch_y.get()} - _param_osd_ch_pos_ver.get());
 		}
 	}
 

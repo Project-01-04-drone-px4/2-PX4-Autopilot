@@ -33,6 +33,7 @@
 
 #pragma once
 
+#include <mathlib/mathlib.h>
 #include <px4_platform_common/defines.h>
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/module_params.h>
@@ -60,9 +61,6 @@
 #include "uorb_to_msp.hpp"
 
 using namespace time_literals;
-
-// location to "hide" unused display elements
-#define LOCATION_HIDDEN 234;
 
 #define POWER_LEVEL_COUNT 5
 #define BAND_COUNT 7
@@ -132,11 +130,21 @@ private:
 	void Send(const unsigned int message_type, const void *payload);
 	void Send(const unsigned int message_type, const void *payload, int32_t payload_size);
 
+	static constexpr int32_t DISPLAY_MAX_COLUMN = 59;
+	static constexpr int32_t DISPLAY_MAX_ROW = 21;
+
+	// DisplayPort uses zero-based character coordinates on a 60 x 22 canvas.
+	template<typename T>
+	void SendDisplay(T &message, int64_t column, int64_t row)
+	{
+		message.screenXPosition = math::constrain(column, int64_t{0}, int64_t{DISPLAY_MAX_COLUMN});
+		message.screenYPosition = math::constrain(row, int64_t{0}, int64_t{DISPLAY_MAX_ROW});
+		Send(MSP_CMD_DISPLAYPORT, &message, sizeof(message));
+	}
+
 	// receive vtx data
 	void Receive();
 
-	// send full configuration to MSP (triggers the actual update)
-	void SendConfig();
 	void SendTelemetry();
 
 	// perform actions required for local updates
@@ -178,7 +186,35 @@ private:
 		(ParamInt<px4::params::OSD_SCROLL_RATE>) _param_osd_scroll_rate,
 		(ParamInt<px4::params::OSD_DWELL_TIME>) _param_osd_dwell_time,
 		(ParamInt<px4::params::OSD_LOG_LEVEL>) _param_osd_log_level,
-		(ParamInt<px4::params::OSD_RC_STICK>) _param_osd_rc_stick
+		(ParamInt<px4::params::OSD_RC_STICK>) _param_osd_rc_stick,
+		(ParamInt<px4::params::OSD_MSG_X>) _param_osd_msg_x,
+		(ParamInt<px4::params::OSD_MSG_Y>) _param_osd_msg_y,
+		(ParamInt<px4::params::OSD_RSSI_X>) _param_osd_rssi_x,
+		(ParamInt<px4::params::OSD_RSSI_Y>) _param_osd_rssi_y,
+		(ParamInt<px4::params::OSD_CELL_X>) _param_osd_cell_x,
+		(ParamInt<px4::params::OSD_CELL_Y>) _param_osd_cell_y,
+		(ParamInt<px4::params::OSD_CURR_X>) _param_osd_curr_x,
+		(ParamInt<px4::params::OSD_CURR_Y>) _param_osd_curr_y,
+		(ParamInt<px4::params::OSD_MAH_X>) _param_osd_mah_x,
+		(ParamInt<px4::params::OSD_MAH_Y>) _param_osd_mah_y,
+		(ParamInt<px4::params::OSD_LAT_X>) _param_osd_lat_x,
+		(ParamInt<px4::params::OSD_LAT_Y>) _param_osd_lat_y,
+		(ParamInt<px4::params::OSD_LON_X>) _param_osd_lon_x,
+		(ParamInt<px4::params::OSD_LON_Y>) _param_osd_lon_y,
+		(ParamInt<px4::params::OSD_SAT_X>) _param_osd_sat_x,
+		(ParamInt<px4::params::OSD_SAT_Y>) _param_osd_sat_y,
+		(ParamInt<px4::params::OSD_SPD_X>) _param_osd_spd_x,
+		(ParamInt<px4::params::OSD_SPD_Y>) _param_osd_spd_y,
+		(ParamInt<px4::params::OSD_HOME_X>) _param_osd_home_x,
+		(ParamInt<px4::params::OSD_HOME_Y>) _param_osd_home_y,
+		(ParamInt<px4::params::OSD_PITCH_X>) _param_osd_pitch_x,
+		(ParamInt<px4::params::OSD_PITCH_Y>) _param_osd_pitch_y,
+		(ParamInt<px4::params::OSD_ROLL_X>) _param_osd_roll_x,
+		(ParamInt<px4::params::OSD_ROLL_Y>) _param_osd_roll_y,
+		(ParamInt<px4::params::OSD_ALT_X>) _param_osd_alt_x,
+		(ParamInt<px4::params::OSD_ALT_Y>) _param_osd_alt_y,
+		(ParamInt<px4::params::OSD_CH_X>) _param_osd_ch_x,
+		(ParamInt<px4::params::OSD_CH_Y>) _param_osd_ch_y
 	)
 
 	// metadata

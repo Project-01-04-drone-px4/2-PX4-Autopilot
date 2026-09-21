@@ -121,3 +121,341 @@ parameters:
             min: 0
             max: 1
             default: 1
+
+        OSD_MSG_X:
+            description:
+                short: Status and warning message X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 20
+            min: 0
+            max: 59
+
+        OSD_MSG_Y:
+            description:
+                short: Status and warning message Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 2
+            min: 0
+            max: 21
+
+        OSD_RSSI_X:
+            description:
+                short: RC link quality X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 2
+            min: 0
+            max: 59
+
+        OSD_RSSI_Y:
+            description:
+                short: RC link quality Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 2
+            min: 0
+            max: 21
+
+        OSD_CELL_X:
+            description:
+                short: Average cell voltage X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 2
+            min: 0
+            max: 59
+
+        OSD_CELL_Y:
+            description:
+                short: Average cell voltage Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 4
+            min: 0
+            max: 21
+
+        OSD_CURR_X:
+            description:
+                short: Battery current X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 2
+            min: 0
+            max: 59
+
+        OSD_CURR_Y:
+            description:
+                short: Battery current Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 5
+            min: 0
+            max: 21
+
+        OSD_MAH_X:
+            description:
+                short: Consumed battery capacity X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 2
+            min: 0
+            max: 59
+
+        OSD_MAH_Y:
+            description:
+                short: Consumed battery capacity Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 6
+            min: 0
+            max: 21
+
+        OSD_LAT_X:
+            description:
+                short: GPS latitude X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 41
+            min: 0
+            max: 59
+
+        OSD_LAT_Y:
+            description:
+                short: GPS latitude Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 10
+            min: 0
+            max: 21
+
+        OSD_LON_X:
+            description:
+                short: GPS longitude X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 41
+            min: 0
+            max: 59
+
+        OSD_LON_Y:
+            description:
+                short: GPS longitude Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 9
+            min: 0
+            max: 21
+
+        OSD_SAT_X:
+            description:
+                short: GPS satellite count X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 41
+            min: 0
+            max: 59
+
+        OSD_SAT_Y:
+            description:
+                short: GPS satellite count Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 8
+            min: 0
+            max: 21
+
+        OSD_SPD_X:
+            description:
+                short: GPS ground speed X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 2
+            min: 0
+            max: 59
+
+        OSD_SPD_Y:
+            description:
+                short: GPS ground speed Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 8
+            min: 0
+            max: 21
+
+        OSD_HOME_X:
+            description:
+                short: Distance to home X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 2
+            min: 0
+            max: 59
+
+        OSD_HOME_Y:
+            description:
+                short: Distance to home Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 10
+            min: 0
+            max: 21
+
+        OSD_PITCH_X:
+            description:
+                short: Pitch angle X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 41
+            min: 0
+            max: 59
+
+        OSD_PITCH_Y:
+            description:
+                short: Pitch angle Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 13
+            min: 0
+            max: 21
+
+        OSD_ROLL_X:
+            description:
+                short: Roll angle X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 41
+            min: 0
+            max: 59
+
+        OSD_ROLL_Y:
+            description:
+                short: Roll angle Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 14
+            min: 0
+            max: 21
+
+        OSD_ALT_X:
+            description:
+                short: Altitude X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 2
+            min: 0
+            max: 59
+
+        OSD_ALT_Y:
+            description:
+                short: Altitude Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+            type: int32
+            default: 9
+            min: 0
+            max: 21
+
+        OSD_CH_X:
+            description:
+                short: Crosshairs X position
+                long: |
+                    DisplayPort column, increasing to the right, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+                    The existing OSD_CH_POS_HOR/VER offsets are applied to this base position.
+            type: int32
+            default: 26
+            min: 0
+            max: 59
+
+        OSD_CH_Y:
+            description:
+                short: Crosshairs Y position
+                long: |
+                    DisplayPort row, increasing downward, starting at zero at the top-left.
+                    Choose a position within the connected display canvas, leaving room for the text.
+                    Applied while running; no reboot required.
+                    The existing OSD_CH_POS_HOR/VER offsets are applied to this base position.
+            type: int32
+            default: 10
+            min: 0
+            max: 21

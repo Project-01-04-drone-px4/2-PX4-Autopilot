@@ -139,6 +139,6 @@ msp_rc_t construct_MSP_RC(const input_rc_s &input_rc);
 msp_status_t construct_MSP_STATUS(const vehicle_status_s &vehicle_status);
 
 // construct an MSP_CROSSHAIRS struct
-msp_rendor_crosshairs_t construct_rendor_CROSSHAIRS(const int pos_vertical_offset, const int pos_horizontal_offset);
+msp_rendor_crosshairs_t construct_rendor_CROSSHAIRS();
 
 } // namespace msp_osd
