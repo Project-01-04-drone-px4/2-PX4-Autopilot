@@ -193,6 +193,8 @@ if(NOT DEFINED PYTHON_EXECUTABLE OR PYTHON_EXECUTABLE STREQUAL "")
 endif()
 set(PYTHON_EXECUTABLE "${PYTHON_EXECUTABLE}" CACHE FILEPATH "Python 3 interpreter" FORCE)
 
+option(PX4_GENERATE_VSCODE_CONFIG "Generate VS Code configuration files in .vscode" OFF)
+
 option(PYTHON_COVERAGE "Python code coverage" OFF)
 if(PYTHON_COVERAGE)
 	message(STATUS "python coverage enabled")
