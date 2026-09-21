@@ -90,6 +90,10 @@
 #define MSP_DP_OPTIONS             5
 #define MSP_DP_SYS                 6
 
+// MSP DisplayPort canvas mode values used by INAV/HDZero-compatible OSDs.
+// HD_5320 is the 53 x 20 Avatar/HD canvas.
+#define MSP_DP_CANVAS_HD_5320      4
+
 // bits of getActiveModes() return value
 #define MSP_MODE_ARM          0
 #define MSP_MODE_ANGLE        1

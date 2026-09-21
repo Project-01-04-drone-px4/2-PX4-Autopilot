@@ -47,8 +47,9 @@
 #include "msp_defines.h"
 #include "MspV1.hpp"
 
-MspV1::MspV1(int fd) :
-	_fd(fd)
+MspV1::MspV1(int fd, MspDirection direction) :
+	_fd(fd),
+	_direction(direction)
 {
 }
 
@@ -117,7 +118,7 @@ bool MspV1::SendPayload(const uint8_t message_id, const void *payload, size_t pa
 
 	packet[0] = '$';
 	packet[1] = 'M';
-	packet[2] = '<';
+	packet[2] = static_cast<uint8_t>(_direction);
 	packet[3] = static_cast<uint8_t>(payload_size);
 	packet[4] = message_id;
 

@@ -136,6 +136,9 @@ private:
 	void SendDisplayPort();
 	bool SendDisplayPortText(uint8_t x, uint8_t y, const char *text, uint8_t attributes = 0);
 	void SendTelemetry();
+	bool initialize_serial();
+	void close_serial();
+	void register_send_result(bool success);
 
 	// perform actions required for local updates
 	void parameters_update();
@@ -173,6 +176,19 @@ private:
 	hrt_abstime _last_displayport_update{0};
 	hrt_abstime _last_config_update{0};
 	hrt_abstime _last_telemetry_update{0};
+	hrt_abstime _serial_startup_time{0};
+	hrt_abstime _last_successful_send{0};
+	hrt_abstime _last_failed_send{0};
+	hrt_abstime _last_displayport_options_update{0};
+	uint8_t _consecutive_unsuccessful_sends{0};
+	bool _displayport_session_reset_pending{true};
+	uint32_t _displayport_frame_count{0};
+	uint32_t _displayport_release_count{0};
+	uint32_t _displayport_heartbeat_count{0};
+	uint32_t _displayport_options_count{0};
+	uint32_t _displayport_clear_count{0};
+	uint32_t _displayport_write_count{0};
+	uint32_t _displayport_draw_count{0};
 
 	// parameters
 	DEFINE_PARAMETERS(

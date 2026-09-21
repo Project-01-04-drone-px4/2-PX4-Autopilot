@@ -72,6 +72,10 @@ namespace
 constexpr hrt_abstime DISPLAYPORT_FRAME_INTERVAL = 200_ms;
 constexpr hrt_abstime CONFIG_FRAME_INTERVAL = 1_s;
 constexpr hrt_abstime TELEMETRY_FRAME_INTERVAL = 200_ms;
+constexpr hrt_abstime SERIAL_STARTUP_DELAY = 1500_ms;
+constexpr hrt_abstime SERIAL_SEND_TIMEOUT = 3_s;
+constexpr hrt_abstime DISPLAYPORT_OPTIONS_INTERVAL = 1_s;
+constexpr uint8_t SERIAL_SEND_FAILURE_LIMIT = 10;
 
 const char *flight_mode_name(uint8_t nav_state)
 {
@@ -163,6 +167,7 @@ MspOsd::MspOsd(const char *device) :
 
 MspOsd::~MspOsd()
 {
+	close_serial();
 }
 
 bool MspOsd::init()
@@ -275,7 +280,93 @@ void MspOsd::SendConfig()
 	msp_osd_config.osd_rssi_dbm_value_pos = 		LOCATION_HIDDEN;
 	msp_osd_config.osd_rc_channels_pos = 			LOCATION_HIDDEN;
 
-	_msp.Send(MSP_OSD_CONFIG, &msp_osd_config);
+	Send(MSP_OSD_CONFIG, &msp_osd_config);
+}
+
+bool MspOsd::initialize_serial()
+{
+	_msp_fd = open(_device, O_RDWR | O_NOCTTY | O_NONBLOCK);
+
+	if (_msp_fd < 0) {
+		_performance_data.initialization_problems = true;
+		return false;
+	}
+
+	struct termios t {};
+
+	if (tcgetattr(_msp_fd, &t) != 0) {
+		close_serial();
+		_performance_data.initialization_problems = true;
+		return false;
+	}
+
+	cfsetspeed(&t, B115200);
+	t.c_cflag |= (CS8 | CLOCAL | CREAD);
+	t.c_cflag &= ~(CSTOPB | PARENB | CRTSCTS);
+	t.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
+	t.c_iflag &= ~(IGNBRK | BRKINT | ICRNL | INLCR | PARMRK | INPCK | ISTRIP | IXON);
+	t.c_oflag = 0;
+
+	if (tcsetattr(_msp_fd, TCSANOW, &t) != 0) {
+		close_serial();
+		_performance_data.initialization_problems = true;
+		return false;
+	}
+
+	// Discard stale bytes left by the bootloader or another owner of the UART.
+	tcflush(_msp_fd, TCIOFLUSH);
+
+	_msp = MspV1(_msp_fd);
+	_is_initialized = true;
+	_displayport_needs_clear = true;
+	_displayport_session_reset_pending = true;
+	_consecutive_unsuccessful_sends = 0;
+	_last_displayport_update = 0;
+	_last_config_update = 0;
+	_last_telemetry_update = 0;
+	_last_displayport_options_update = 0;
+
+	const hrt_abstime now = hrt_absolute_time();
+	_serial_startup_time = now + SERIAL_STARTUP_DELAY;
+	_last_successful_send = now;
+
+	PX4_INFO("MSP OSD serial ready on %s", _device);
+	return true;
+}
+
+void MspOsd::close_serial()
+{
+	if (_msp_fd >= 0) {
+		close(_msp_fd);
+		_msp_fd = -1;
+	}
+
+	_msp = MspV1(-1);
+	_is_initialized = false;
+	_displayport_needs_clear = true;
+	_displayport_session_reset_pending = true;
+	_last_displayport_update = 0;
+	_last_config_update = 0;
+	_last_telemetry_update = 0;
+	_last_displayport_options_update = 0;
+	_consecutive_unsuccessful_sends = 0;
+}
+
+void MspOsd::register_send_result(bool success)
+{
+	if (success) {
+		_performance_data.successful_sends++;
+		_consecutive_unsuccessful_sends = 0;
+		_last_successful_send = hrt_absolute_time();
+
+	} else {
+		_performance_data.unsuccessful_sends++;
+		_last_failed_send = hrt_absolute_time();
+
+		if (_consecutive_unsuccessful_sends < UINT8_MAX) {
+			_consecutive_unsuccessful_sends++;
+		}
+	}
 }
 
 void MspOsd::Run()
@@ -298,34 +389,31 @@ void MspOsd::Run()
 
 	// perform first time initialization, if needed
 	if (!_is_initialized) {
-		struct termios t;
-		_msp_fd = open(_device, O_RDWR);
-
-		if (_msp_fd < 0) {
-			_performance_data.initialization_problems = true;
+		if (!initialize_serial()) {
 			return;
 		}
+	}
 
-		tcgetattr(_msp_fd, &t);
-		cfsetspeed(&t, B115200);
-		t.c_cflag &= ~(CSTOPB | PARENB | CRTSCTS);
-		t.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
-		t.c_iflag &= ~(IGNBRK | BRKINT | ICRNL | INLCR | PARMRK | INPCK | ISTRIP | IXON);
-		t.c_oflag = 0;
-		tcsetattr(_msp_fd, TCSANOW, &t);
+	const hrt_abstime now = hrt_absolute_time();
 
-			_msp = MspV1(_msp_fd);
+	// Give the external OSD/video device time to finish its own boot before
+	// sending the first MSP frame.
+	if (now < _serial_startup_time) {
+		return;
+	}
 
-			_is_initialized = true;
-			_displayport_needs_clear = true;
-		}
+	// A UART can remain open after its peer has disappeared or was powered up
+	// later. Reopen it so the next periodic frame starts a clean session.
+	if (_consecutive_unsuccessful_sends >= SERIAL_SEND_FAILURE_LIMIT
+	    || now - _last_successful_send > SERIAL_SEND_TIMEOUT) {
+		close_serial();
+		return;
+	}
 
 	// avoid premature pessimization; if skip processing if we're effectively disabled
 	if (_param_osd_symbols.get() == 0) {
 		return;
 	}
-
-	const hrt_abstime now = hrt_absolute_time();
 
 	if (now - _last_telemetry_update >= TELEMETRY_FRAME_INTERVAL) {
 		_last_telemetry_update = now;
@@ -475,12 +563,7 @@ void MspOsd::Run()
 
 void MspOsd::Send(const unsigned int message_type, const void *payload)
 {
-	if (_msp.Send(message_type, payload)) {
-		_performance_data.successful_sends++;
-
-	} else {
-		_performance_data.unsuccessful_sends++;
-	}
+	register_send_result(_msp.Send(message_type, payload));
 }
 
 bool MspOsd::SendDisplayPortText(uint8_t x, uint8_t y, const char *text, uint8_t attributes)
@@ -497,14 +580,10 @@ bool MspOsd::SendDisplayPortText(uint8_t x, uint8_t y, const char *text, uint8_t
 	payload[3] = attributes;
 	memcpy(&payload[4], text, text_length);
 
+	_displayport_write_count++;
 	const bool result = _msp.SendPayload(MSP_DISPLAYPORT, payload, text_length + 4);
 
-	if (result) {
-		_performance_data.successful_sends++;
-
-	} else {
-		_performance_data.unsuccessful_sends++;
-	}
+	register_send_result(result);
 
 	return result;
 }
@@ -512,18 +591,39 @@ bool MspOsd::SendDisplayPortText(uint8_t x, uint8_t y, const char *text, uint8_t
 void MspOsd::SendDisplayPort()
 {
 	const uint8_t heartbeat[] = {MSP_DP_HEARTBEAT};
+	const uint8_t release[] = {MSP_DP_RELEASE};
+	const uint8_t options[] = {MSP_DP_OPTIONS, 0, MSP_DP_CANVAS_HD_5320};
 	const uint8_t clear_screen[] = {MSP_DP_CLEAR_SCREEN};
 	const uint8_t draw_screen[] = {MSP_DP_DRAW_SCREEN};
 
 	auto send_command = [this](const uint8_t *payload, size_t size) {
-		if (_msp.SendPayload(MSP_DISPLAYPORT, payload, size)) {
-			_performance_data.successful_sends++;
-			return true;
+		if (size > 0) {
+			switch (payload[0]) {
+			case MSP_DP_RELEASE:
+				_displayport_release_count++;
+				break;
 
-		} else {
-			_performance_data.unsuccessful_sends++;
-			return false;
+			case MSP_DP_HEARTBEAT:
+				_displayport_heartbeat_count++;
+				break;
+
+			case MSP_DP_OPTIONS:
+				_displayport_options_count++;
+				break;
+
+			case MSP_DP_CLEAR_SCREEN:
+				_displayport_clear_count++;
+				break;
+
+			case MSP_DP_DRAW_SCREEN:
+				_displayport_draw_count++;
+				break;
+			}
 		}
+
+		const bool result = _msp.SendPayload(MSP_DISPLAYPORT, payload, size);
+		register_send_result(result);
+		return result;
 	};
 	auto x_coord = [](int32_t value) {
 		return static_cast<uint8_t>(math::constrain(value, static_cast<int32_t>(0),
@@ -534,11 +634,48 @@ void MspOsd::SendDisplayPort()
 				static_cast<int32_t>(DISPLAYPORT_CANVAS_ROWS - 1)));
 	};
 
-	send_command(heartbeat, sizeof(heartbeat));
+	const hrt_abstime now = hrt_absolute_time();
+	const bool session_reset = _displayport_session_reset_pending;
+	bool session_reset_success = true;
+	_displayport_frame_count++;
+
+	// A powered video receiver can keep the previous DisplayPort session while
+	// the flight controller reboots. Explicitly release that session before
+	// grabbing it again, otherwise the receiver may continue showing a stale
+	// session and ignore the new flight controller stream.
+	if (session_reset) {
+		session_reset_success = send_command(release, sizeof(release));
+	}
+
+	session_reset_success = send_command(heartbeat, sizeof(heartbeat)) && session_reset_success;
+
+	const bool options_update = session_reset
+				     || _displayport_needs_clear
+				     || now - _last_displayport_options_update >= DISPLAYPORT_OPTIONS_INTERVAL;
+
+	// Tell the goggles which HD canvas is in use. This is separate from the
+	// legacy MSP_OSD_CONFIG video_system field and is required by many HD
+	// DisplayPort receivers before they accept 53x20 coordinates.
+	if (options_update) {
+		const bool options_success = send_command(options, sizeof(options));
+		session_reset_success = options_success && session_reset_success;
+
+		if (options_success) {
+			_last_displayport_options_update = now;
+		}
+	}
 
 	if (_displayport_needs_clear) {
-		send_command(clear_screen, sizeof(clear_screen));
-		_displayport_needs_clear = false;
+		const bool clear_success = send_command(clear_screen, sizeof(clear_screen));
+		session_reset_success = clear_success && session_reset_success;
+
+		if (clear_success) {
+			_displayport_needs_clear = false;
+		}
+	}
+
+	if (session_reset && session_reset_success) {
+		_displayport_session_reset_pending = false;
 	}
 
 	vehicle_status_s vehicle_status{};
@@ -552,70 +689,73 @@ void MspOsd::SendDisplayPort()
 	}
 
 	if (enabled(SymbolIndex::DISARMED)) {
-		const char *arming = vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED ? "ARMED" : "DISARMED";
-		char text[10];
-		snprintf(text, sizeof(text), "%-8s", arming);
+		const char *arming = vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED ? "ARM" : "DISARM";
+		char text[8];
+		snprintf(text, sizeof(text), "%-6s", arming);
 		SendDisplayPortText(x_coord(_param_osd_disarmed_x.get()), y_coord(_param_osd_disarmed_y.get()), text);
 	}
 
 	if (enabled(SymbolIndex::FLYMODE)) {
-		char text[32];
-		snprintf(text, sizeof(text), "MODE:%-24s", flight_mode_name(vehicle_status.nav_state));
+		// The value itself identifies the flight mode; avoid spending five
+		// columns on a redundant "MODE:" prefix.
+		char text[16];
+		snprintf(text, sizeof(text), "%-8s", flight_mode_name(vehicle_status.nav_state));
 		SendDisplayPortText(x_coord(_param_osd_flymode_x.get()), y_coord(_param_osd_flymode_y.get()), text);
 	}
 
 	if (enabled(SymbolIndex::GPS_SATS)) {
 		sensor_gps_s gps{};
 		_vehicle_gps_position_sub.copy(&gps);
-		char text[20];
-		snprintf(text, sizeof(text), "GPS:%-2u", static_cast<unsigned>(gps.satellites_used));
+		char text[12];
+		snprintf(text, sizeof(text), "S:%02u", static_cast<unsigned>(gps.satellites_used));
 		SendDisplayPortText(x_coord(_param_osd_gps_sats_x.get()), y_coord(_param_osd_gps_sats_y.get()), text);
 	}
 
 	if (enabled(SymbolIndex::ALTITUDE)) {
 		vehicle_local_position_s local_position{};
 		_vehicle_local_position_sub.copy(&local_position);
-		char text[20];
+		char text[16];
 		const float altitude = local_position.z_valid ? -local_position.z : 0.f;
-		snprintf(text, sizeof(text), "ALT:%+7.1f", static_cast<double>(altitude));
+		snprintf(text, sizeof(text), "%+7.1fm", static_cast<double>(altitude));
 		SendDisplayPortText(x_coord(_param_osd_altitude_x.get()), y_coord(_param_osd_altitude_y.get()), text);
 	}
 
 	if (enabled(SymbolIndex::MAIN_BATT_VOLTAGE) || enabled(SymbolIndex::CURRENT_DRAW)
-	    || enabled(SymbolIndex::MAH_DRAWN) || enabled(SymbolIndex::POWER)) {
+	    || enabled(SymbolIndex::MAH_DRAWN) || enabled(SymbolIndex::AVG_CELL_VOLTAGE)
+	    || enabled(SymbolIndex::POWER)) {
 		battery_status_s battery{};
 		_battery_status_sub.copy(&battery);
 
 		if (enabled(SymbolIndex::MAIN_BATT_VOLTAGE)) {
-			char text[20];
-			snprintf(text, sizeof(text), "BAT:%5.2fV", static_cast<double>(battery.voltage_v));
+			char text[12];
+			snprintf(text, sizeof(text), "%5.2fV", static_cast<double>(battery.voltage_v));
 			SendDisplayPortText(x_coord(_param_osd_batt_volt_x.get()), y_coord(_param_osd_batt_volt_y.get()), text);
 		}
 
 		if (enabled(SymbolIndex::AVG_CELL_VOLTAGE)) {
-			char text[20];
+			char text[12];
 			const float average_cell_voltage = battery.cell_count > 0
 							   ? battery.voltage_v / battery.cell_count
 							   : 0.f;
-			snprintf(text, sizeof(text), "CELL:%4.2fV", static_cast<double>(average_cell_voltage));
+			snprintf(text, sizeof(text), "C%4.2fV", static_cast<double>(average_cell_voltage));
 			SendDisplayPortText(x_coord(_param_osd_cell_volt_x.get()), y_coord(_param_osd_cell_volt_y.get()), text);
 		}
 
 		if (enabled(SymbolIndex::CURRENT_DRAW)) {
-			char text[20];
-			snprintf(text, sizeof(text), "CUR:%5.1fA", static_cast<double>(battery.current_a));
+			char text[12];
+			snprintf(text, sizeof(text), "%5.1fA", static_cast<double>(battery.current_a));
 			SendDisplayPortText(x_coord(_param_osd_current_x.get()), y_coord(_param_osd_current_y.get()), text);
 		}
 
 		if (enabled(SymbolIndex::MAH_DRAWN)) {
-			char text[20];
-			snprintf(text, sizeof(text), "MAH:%-5u", static_cast<unsigned>(battery.discharged_mah));
+			char text[16];
+			snprintf(text, sizeof(text), "%5umAh", static_cast<unsigned>(battery.discharged_mah));
 			SendDisplayPortText(x_coord(_param_osd_mah_drawn_x.get()), y_coord(_param_osd_mah_drawn_y.get()), text);
 		}
 
 		if (enabled(SymbolIndex::POWER)) {
-			char text[20];
-			snprintf(text, sizeof(text), "PWR:%-5.0fW",
+			char text[12];
+			snprintf(text, sizeof(text), "%5.0fW",
 				 static_cast<double>(battery.voltage_v * battery.current_a));
 			SendDisplayPortText(x_coord(_param_osd_power_x.get()), y_coord(_param_osd_power_y.get()), text);
 		}
@@ -624,8 +764,8 @@ void MspOsd::SendDisplayPort()
 	if (enabled(SymbolIndex::RSSI_VALUE)) {
 		input_rc_s input_rc{};
 		_input_rc_sub.copy(&input_rc);
-		char text[20];
-		snprintf(text, sizeof(text), "LQ:%-3u%%", static_cast<unsigned>(input_rc.link_quality));
+		char text[12];
+		snprintf(text, sizeof(text), "%3u%%", static_cast<unsigned>(input_rc.link_quality));
 		SendDisplayPortText(x_coord(_param_osd_rssi_x.get()), y_coord(_param_osd_rssi_y.get()), text);
 	}
 
@@ -707,12 +847,39 @@ int MspOsd::task_spawn(int argc, char *argv[])
 
 int MspOsd::print_status()
 {
+	const hrt_abstime now = hrt_absolute_time();
+	const auto age_ms = [now](hrt_abstime timestamp) -> unsigned long long {
+		return timestamp > 0 && now >= timestamp
+		       ? static_cast<unsigned long long>((now - timestamp) / 1000)
+		       : 0;
+	};
+
 	PX4_INFO("Running on %s", _device);
 	PX4_INFO("\tinitialized: %d", _is_initialized);
 	PX4_INFO("\tinitialization issues: %d", _performance_data.initialization_problems);
+	PX4_INFO("\tserial: 115200 8N1, MSP direction: $M>");
 	PX4_INFO("\tscroll rate: %d", static_cast<int>(_param_osd_scroll_rate.get()));
 	PX4_INFO("\tsuccessful sends: %lu", _performance_data.successful_sends);
 	PX4_INFO("\tunsuccessful sends: %lu", _performance_data.unsuccessful_sends);
+	PX4_INFO("\tconsecutive send failures: %u", _consecutive_unsuccessful_sends);
+	PX4_INFO("\tlast successful send: %llu ms ago", age_ms(_last_successful_send));
+	PX4_INFO("\tlast failed send: %llu ms ago", age_ms(_last_failed_send));
+	PX4_INFO("\tstartup delay pending: %d", now < _serial_startup_time);
+	PX4_INFO("\tDP session reset pending: %d", _displayport_session_reset_pending);
+	PX4_INFO("\tDP clear pending: %d", _displayport_needs_clear);
+	PX4_INFO("\tDP frames: %lu, release: %lu, heartbeat: %lu",
+		 static_cast<unsigned long>(_displayport_frame_count),
+		 static_cast<unsigned long>(_displayport_release_count),
+		 static_cast<unsigned long>(_displayport_heartbeat_count));
+	PX4_INFO("\tDP options: %lu, clear: %lu, write: %lu, draw: %lu",
+		 static_cast<unsigned long>(_displayport_options_count),
+		 static_cast<unsigned long>(_displayport_clear_count),
+		 static_cast<unsigned long>(_displayport_write_count),
+		 static_cast<unsigned long>(_displayport_draw_count));
+	PX4_INFO("\tDP canvas: %ux%u, options mode: %u",
+		 DISPLAYPORT_CANVAS_COLUMNS,
+		 DISPLAYPORT_CANVAS_ROWS,
+		 MSP_DP_CANVAS_HD_5320);
 
 	// print current display string
 	char msg[FULL_MSG_BUFFER];
