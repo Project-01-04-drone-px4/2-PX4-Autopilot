@@ -66,7 +66,6 @@
 
 __BEGIN_DECLS
 extern void led_init(void);
-extern void led_on(int led);
 extern void led_off(int led);
 __END_DECLS
 
@@ -171,14 +170,14 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	led_off(LED_BLUE);
 
 	if (board_hardfault_init(2, true) != 0) {
-		led_on(LED_BLUE);
+		led_off(LED_BLUE);
 	}
 
 #ifdef CONFIG_MMCSD
 	int ret = stm32_sdio_initialize();
 
 	if (ret != OK) {
-		led_on(LED_BLUE);
+		led_off(LED_BLUE);
 		return ret;
 	}
 
@@ -196,7 +195,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 
 	if (result != OK) {
 		syslog(LOG_ERR, "[boot] FAILED to init params in FLASH %d\n", result);
-		led_on(LED_RED);
+		led_off(LED_RED);
 	}
 
 #endif

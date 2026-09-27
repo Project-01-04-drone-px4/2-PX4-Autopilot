@@ -54,6 +54,14 @@ __EXPORT void board_on_reset(int status) {}
 
 __EXPORT void stm32_boardinitialize(void)
 {
+	/* Keep all active-low LEDs off and leave bootloader LED activity disabled. */
+	px4_arch_configgpio(GPIO_nLED_RED);
+	px4_arch_configgpio(GPIO_nLED_GREEN);
+	px4_arch_configgpio(GPIO_nLED_BLUE);
+	px4_arch_gpiowrite(GPIO_nLED_RED, true);
+	px4_arch_gpiowrite(GPIO_nLED_GREEN, true);
+	px4_arch_gpiowrite(GPIO_nLED_BLUE, true);
+
 	/* configure USB interfaces */
 	stm32_usbinitialize();
 }

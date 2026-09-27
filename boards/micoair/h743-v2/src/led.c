@@ -39,8 +39,6 @@
 
 #include <px4_platform_common/px4_config.h>
 
-#include <stdbool.h>
-
 #include "chip.h"
 #include "stm32_gpio.h"
 #include "board_config.h"
@@ -71,44 +69,35 @@ static uint32_t g_ledmap[] = {
 
 __EXPORT void led_init(void)
 {
-	/* Configure LED GPIOs for output */
+	/* Configure every LED output and keep it inactive (the LEDs are active low). */
 	for (size_t l = 0; l < (sizeof(g_ledmap) / sizeof(g_ledmap[0])); l++) {
 		if (g_ledmap[l] != 0) {
 			stm32_configgpio(g_ledmap[l]);
+			stm32_gpiowrite(g_ledmap[l], true);
 		}
 	}
 }
 
-static void phy_set_led(int led, bool state)
+static void phy_led_off(int led)
 {
-	/* Drive Low to switch on */
+	/* LED indication is disabled for this board: always drive the active-low LED off. */
 	if (g_ledmap[led] != 0) {
-		stm32_gpiowrite(g_ledmap[led], !state);
+		stm32_gpiowrite(g_ledmap[led], true);
 	}
-}
-
-static bool phy_get_led(int led)
-{
-	/* If Low it is on */
-	if (g_ledmap[led] != 0) {
-		return !stm32_gpioread(g_ledmap[led]);
-	}
-
-	return false;
 }
 
 
 __EXPORT void led_on(int led)
 {
-	phy_set_led(xlat(led), true);
+	phy_led_off(xlat(led));
 }
 
 __EXPORT void led_off(int led)
 {
-	phy_set_led(xlat(led), false);
+	phy_led_off(xlat(led));
 }
 
 __EXPORT void led_toggle(int led)
 {
-	phy_set_led(xlat(led), !phy_get_led(xlat(led)));
+	phy_led_off(xlat(led));
 }
