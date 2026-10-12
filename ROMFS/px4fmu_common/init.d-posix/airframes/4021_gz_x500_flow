@@ -7,6 +7,9 @@
 
 PX4_SIM_MODEL=${PX4_SIM_MODEL:=x500_flow}
 
+# Optical flow needs ground features; the default world has a uniform floor.
+PX4_GZ_WORLD=${PX4_GZ_WORLD:=flow}
+
 . ${R}etc/init.d-posix/airframes/4001_gz_x500
 
 echo "Disabling Sim GPS"

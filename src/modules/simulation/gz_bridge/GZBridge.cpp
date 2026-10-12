@@ -362,6 +362,11 @@ void GZBridge::clockCallback(const gz::msgs::Clock &msg)
 
 void GZBridge::opticalFlowCallback(const px4::msgs::OpticalFlow &msg)
 {
+	// Reject invalid quality before narrowing to the uint8 uORB field.
+	if (msg.quality() < 0 || msg.quality() > UINT8_MAX) {
+		return;
+	}
+
 	sensor_optical_flow_s report = {};
 
 	report.timestamp = hrt_absolute_time();

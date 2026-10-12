@@ -643,6 +643,20 @@ size_t LogWriterFile::LogFileBuffer::get_read_ptr(void **ptr, bool *is_part)
 bool LogWriterFile::LogFileBuffer::start_log(const char *filename)
 {
 	_fd = ::open(filename, O_CREAT | O_WRONLY, PX4_O_MODE_666);
+
+	// Boards without a console may leave the standard descriptors closed.
+	// Keep log files out of that range so stdout/stderr cannot corrupt ULog data.
+	if (_fd >= 0 && _fd <= STDERR_FILENO) {
+		const int log_fd = ::fcntl(_fd, F_DUPFD, STDERR_FILENO + 1);
+		const int saved_errno = errno;
+		::close(_fd);
+		_fd = log_fd;
+
+		if (_fd < 0) {
+			errno = saved_errno;
+		}
+	}
+
 	_had_write_error.store(false);
 
 	if (_fd < 0) {

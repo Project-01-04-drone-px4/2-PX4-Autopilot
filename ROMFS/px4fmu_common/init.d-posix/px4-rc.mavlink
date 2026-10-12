@@ -17,7 +17,15 @@ if [ -n "$PX4_NET_INTERFACE" ]; then
 	# And -p to enable broadcasting on that interface, and not be in localhost mode only.
 	mavlink_network_interface_arg="-n $PX4_NET_INTERFACE -p"
 fi
-mavlink start -x -u $udp_gcs_port_local -r 4000000 -f $mavlink_network_interface_arg
+
+# PX4 SITL uses localhost as the default MAVLink destination. Set PX4_GCS_IP
+# when the GCS runs outside the current Linux/WSL network namespace.
+mavlink_gcs_target_arg=""
+if [ -n "$PX4_GCS_IP" ]; then
+	mavlink_gcs_target_arg="-t $PX4_GCS_IP"
+fi
+
+mavlink start -x -u $udp_gcs_port_local -r 4000000 -f $mavlink_gcs_target_arg $mavlink_network_interface_arg
 mavlink stream -r 50 -s POSITION_TARGET_LOCAL_NED -u $udp_gcs_port_local
 mavlink stream -r 50 -s LOCAL_POSITION_NED -u $udp_gcs_port_local
 mavlink stream -r 50 -s GLOBAL_POSITION_INT -u $udp_gcs_port_local
