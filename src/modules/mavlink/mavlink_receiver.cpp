@@ -1123,6 +1123,7 @@ MavlinkReceiver::handle_message_distance_sensor(mavlink_message_t *msg)
 	mavlink_msg_distance_sensor_decode(msg, &dist_sensor);
 
 	distance_sensor_s ds{};
+	const hrt_abstime timestamp_sample = hrt_absolute_time();
 
 	device::Device::DeviceId device_id;
 	device_id.devid_s.bus_type = device::Device::DeviceBusType::DeviceBusType_MAVLINK;
@@ -1130,7 +1131,8 @@ MavlinkReceiver::handle_message_distance_sensor(mavlink_message_t *msg)
 	device_id.devid_s.address = msg->sysid;
 	device_id.devid_s.devtype = DRV_DIST_DEVTYPE_MAVLINK;
 
-	ds.timestamp        = hrt_absolute_time(); /* Use system time for now, don't trust sender to attach correct timestamp */
+	ds.timestamp_sample = timestamp_sample; /* Use system time for now, don't trust sender to attach correct timestamp */
+	ds.timestamp        = timestamp_sample;
 	ds.min_distance     = static_cast<float>(dist_sensor.min_distance) * 1e-2f;     /* cm to m */
 	ds.max_distance     = static_cast<float>(dist_sensor.max_distance) * 1e-2f;     /* cm to m */
 	ds.current_distance = static_cast<float>(dist_sensor.current_distance) * 1e-2f; /* cm to m */

@@ -144,6 +144,8 @@
 	}
 
 #define BOARD_ENABLE_CONSOLE_BUFFER
+// Retain early stdio diagnostics until the MAVLink console connects.
+#define BOARD_CONSOLE_BUFFER_SIZE (16 * 1024)
 
 
 #define BOARD_NUM_IO_TIMERS 5
